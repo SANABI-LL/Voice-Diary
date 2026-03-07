@@ -42,12 +42,13 @@ GEMINI_API_KEY=AIza...
 
 **部署到 Google Cloud Run：**
 - `gcloud builds submit --config cloudbuild.yaml .` — 构建并推送镜像
-- `gcloud run deploy voice-diary --image asia-east1-docker.pkg.dev/voice-diary-solst-2025/voice-diary/app:latest --platform managed --region asia-east1 --allow-unauthenticated --port 8080 --memory 512Mi --set-env-vars GEMINI_API_KEY=...`
-- 线上 URL：`https://voice-diary-947562481976.asia-east1.run.app`
+- `gcloud run deploy voice-diary --image asia-east1-docker.pkg.dev/voice-diary-solst-2025/voice-diary/app:latest --platform managed --region us-central1 --allow-unauthenticated --port 8080 --memory 512Mi --cpu 1 --min-instances 1 --timeout 3600 --set-env-vars GEMINI_API_KEY=...`
+- 线上 URL：`https://voice-diary-947562481976.us-central1.run.app`
 
-**Vercel（仅静态 API，无 WebSocket）：**
-- `vercel dev` — 测试 transcribe/summarize/illustrate/export 等 REST API
-- `vercel deploy` — 部署 REST API 版本到 Vercel
+**GitHub 仓库：**
+- 地址：`https://github.com/SANABI-LL/Voice-Diary`
+- 工作流：本地改代码 → 测试 → `git add . && git commit -m "..." && git push`
+- `.gitignore` 已排除：`.env`、`node_modules/`、`*.tmp.*`、`.claude/`
 
 ## 架构
 
@@ -74,8 +75,9 @@ GEMINI_API_KEY=AIza...
 
 **API 函数**（`api/` 目录，兼容 Vercel Serverless 和 Express 路由）：
 - `transcribe.js`：`formidable` 处理 multipart，`gemini-2.0-flash` inline base64 转录；使用旧版 SDK `@google/generative-ai`（`GoogleGenerativeAI`）
-- `summarize.js`：生活教练风格总结，手动解析 JSON body stream
+- `summarize.js`：生活教练风格总结，手动解析 JSON body stream；支持 `lang` 参数（zh/en）
 - `illustrate.js`：`gemini-2.5-flash-image` 生成插图，使用新版 SDK `@google/genai`（`GoogleGenAI`）
+- `translate.js`：总结翻译（中↔英），`gemini-2.0-flash`；前端缓存至 `localStorage vd_translations`
 - `export.js`：用 `docx` 库导出 Word 文档
 
 > **注意**：项目中同时安装了两个 Gemini SDK：`@google/generative-ai`（旧，`transcribe.js` 用）和 `@google/genai`（新，`illustrate.js` 和 `server/index.js` 用）。新增功能请统一用新版 `@google/genai`。
@@ -88,7 +90,7 @@ GEMINI_API_KEY=AIza...
 
 **PWA**：有 `manifest.json`、`icon.png`、apple-mobile-web-app 元标签，支持安装到桌面/主屏幕。
 
-**视图**：两个 tab —「今日」（录音 + 条目列表 + 生成总结 + 生成插图 + 念念对话）和「日历」（按月浏览历史 + 导出 Word）。
+**视图**：三个 tab —「今日」（录音 + 条目列表 + 生成总结 + 生成插图 + 念念对话）、「相册」（插图翻转卡片，点击展开查看完整总结，支持自动翻译）、「日历」（按月浏览历史 + 插图缩略图 + 导出 Word）。
 
 ## 规范
 
@@ -99,3 +101,4 @@ GEMINI_API_KEY=AIza...
 - API key 从 `process.env.GEMINI_API_KEY` 读取
 - 日期格式：`YYYY-MM-DD`，时间格式：`HH:MM`，locale：`zh-CN`
 - WebSocket URL 自动适配：本地 `ws://`，生产（HTTPS）`wss://`
+- dateStr 存储格式不统一（zh-CN 返回 `2026/03/07`，en-CA 返回 `2026-03-07`），读取时统一用 `.replace(/\//g, '-')` 规范化再解析
