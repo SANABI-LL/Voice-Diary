@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(vercel dev)",
-      "Bash(vercel dev:*)",
-      "Bash(\"C:/Users/solst/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin/gcloud.cmd\" config list)"
-    ]
-  }
-}

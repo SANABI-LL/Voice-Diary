@@ -3,3 +3,5 @@
 .env.local
 node_modules/
 server/node_modules/
+*.tmp.*
+.claude/
