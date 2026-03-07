@@ -2,7 +2,7 @@
 
 > An AI-powered voice diary PWA with real-time conversational companion, automatic transcription, daily summaries, and illustrated memories.
 
-**Live Demo:** https://voice-diary-947562481976.asia-east1.run.app
+**Live Demo:** https://voice-diary-947562481976.us-central1.run.app
 
 ---
 
