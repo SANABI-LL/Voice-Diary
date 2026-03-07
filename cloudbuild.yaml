@@ -1,0 +1,11 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - '-f'
+      - server/Dockerfile
+      - '-t'
+      - 'asia-east1-docker.pkg.dev/voice-diary-solst-2025/voice-diary/app:latest'
+      - '.'
+images:
+  - 'asia-east1-docker.pkg.dev/voice-diary-solst-2025/voice-diary/app:latest'

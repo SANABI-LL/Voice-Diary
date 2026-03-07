@@ -1,0 +1,10 @@
+{
+  "name": "voice-diary",
+  "version": "1.0.0",
+  "dependencies": {
+    "@google/genai": "^1.42.0",
+    "@google/generative-ai": "^0.21.0",
+    "docx": "^9.5.3",
+    "formidable": "^3.5.1"
+  }
+}
