@@ -989,22 +989,7 @@
     return `${proto}//${location.host}/live`;
   })();
 
-  // PCM 采集 AudioWorklet 代码（Blob URL 注入，避免单独文件）
-  const WORKLET_CODE = `
-class PCMProcessor extends AudioWorkletProcessor {
-  process(inputs) {
-    const ch = inputs[0]?.[0];
-    if (ch) {
-      const i16 = new Int16Array(ch.length);
-      for (let i = 0; i < ch.length; i++)
-        i16[i] = Math.max(-32768, Math.min(32767, ch[i] * 32768));
-      this.port.postMessage(i16.buffer, [i16.buffer]);
-    }
-    return true;
-  }
-}
-registerProcessor('pcm-proc', PCMProcessor);
-`;
+  // PCM 采集 AudioWorklet 以独立文件 /worklet.js 提供（iOS Safari 不支持 Blob URL 加载 Worklet）
 
   // IndexedDB for audio + illustration storage
   function openDB() {
@@ -1228,13 +1213,13 @@ registerProcessor('pcm-proc', PCMProcessor);
       await _sil.play();
     } catch(e) {}
 
-    // 15s 连接超时：若未收到 ready 则自动重置
+    // 30s 连接超时：若未收到 ready 则自动重置（冷启动 + 模型初始化需要更多时间）
     connectTimer = setTimeout(() => {
       if (convActive && !captureCtx) {
         showToast(t('connFail'));
         resetConvUI();
       }
-    }, 15000);
+    }, 30000);
 
     liveWs = new WebSocket(WS_URL);
     liveWs.onopen = () => {
@@ -1264,19 +1249,22 @@ registerProcessor('pcm-proc', PCMProcessor);
     if (msg.type === 'ready') {
       clearTimeout(connectTimer); connectTimer = null;
       // 开始麦克风采集（PCM 16kHz）
+      // iOS Safari: don't specify exact sampleRate in getUserMedia (causes OverconstrainedError)
+      // iOS Safari: AudioContext ignores sampleRate hint, use native rate + downsample in worklet
       try {
         micStream = await navigator.mediaDevices.getUserMedia({
-          audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+          audio: { channelCount: { ideal: 1 }, echoCancellation: true, noiseSuppression: true }
         });
-        captureCtx = new AudioContext({ sampleRate: 16000 });
-        const blobUrl = URL.createObjectURL(
-          new Blob([WORKLET_CODE], { type: 'application/javascript' })
-        );
-        await captureCtx.audioWorklet.addModule(blobUrl);
-        URL.revokeObjectURL(blobUrl);
+        captureCtx = new AudioContext();
+        if (captureCtx.state === 'suspended') await captureCtx.resume();
+        // Use real file URL instead of Blob URL — iOS Safari can't load AudioWorklet from Blob
+        await captureCtx.audioWorklet.addModule('/worklet.js');
 
         const source = captureCtx.createMediaStreamSource(micStream);
-        workletNode = new AudioWorkletNode(captureCtx, 'pcm-proc');
+        // Pass targetRate so worklet can downsample from native (e.g. 44100) to 16000
+        workletNode = new AudioWorkletNode(captureCtx, 'pcm-proc', {
+          processorOptions: { targetRate: 16000 }
+        });
         workletNode.port.onmessage = (e) => {
           if (liveWs?.readyState !== 1) return;
           // 客户端 VAD：连续 N 帧超过阈值才打断（防回声/噪音误触）
