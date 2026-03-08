@@ -1370,6 +1370,8 @@
             }
             return; // 模型说话期间屏蔽麦克风回声，不发送给 Gemini
           }
+          // 问候语阶段（念念还未完成第一句话前）不发音频给 Gemini，防止启动竞态窗口误触 VAD
+          if (!modelHasSpoken) return;
           const bytes = new Uint8Array(e.data);
           let str = ''; for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
           const b64 = btoa(str);
