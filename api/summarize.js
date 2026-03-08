@@ -63,6 +63,7 @@ ${entriesText}
     res.json({ title, summary });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: e.message });
+    const status = e.status === 429 ? 429 : 500;
+    res.status(status).json({ error: e.message, rateLimited: status === 429 });
   }
 }

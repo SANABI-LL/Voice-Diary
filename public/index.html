@@ -402,9 +402,11 @@
   .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
   .cal-day { aspect-ratio:1; display:flex; flex-direction:column; align-items:center;
              justify-content:center; border-radius:8px; cursor:pointer; font-size:0.82rem;
-             color:var(--text); transition:background 0.15s;
-             position:relative; overflow:hidden; }
-  .cal-day:hover { background:var(--warm-dim); }
+             color:var(--text); transition:background 0.15s, transform 0.15s;
+             position:relative; overflow:hidden; user-select:none; -webkit-user-select:none; }
+  .cal-day:hover { background:var(--warm-dim); transform:scale(1.08); z-index:1; }
+  .cal-day.has-illus:hover .cal-day-img { transform:scale(1.1); transition:transform 0.15s; }
+  .cal-day-img { transition:transform 0.15s; }
   .cal-day.has-entry { color:var(--warm); font-weight:500; }
   .cal-day.has-entry::after { content:'·'; display:block; font-size:1.2rem; line-height:0.4; color:var(--warm); }
   .cal-day.today { background:var(--warm-dim); }
@@ -507,6 +509,18 @@
   }
   .end-conv-btn.active { display: block; }
   .end-conv-btn:active { background: rgba(212,96,74,0.2); }
+  /* 补录日期 banner */
+  .date-banner {
+    display:flex; align-items:center; justify-content:space-between;
+    background:rgba(232,168,87,0.12); border:1px solid rgba(232,168,87,0.4);
+    border-radius:14px; padding:10px 14px; margin-bottom:10px;
+  }
+  .date-banner-text { font-size:0.85rem; color:var(--warm); font-weight:500; }
+  .date-banner button {
+    background:none; border:1px solid rgba(232,168,87,0.5); color:var(--warm);
+    border-radius:8px; padding:4px 10px; font-size:0.78rem; cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
 
   /* ===== iOS Navigation Bar ===== */
   .ios-nav {
@@ -605,12 +619,14 @@
   /* ===== Welcome Screen ===== */
   #welcomeScreen {
     position: fixed; inset: 0; z-index: 2000;
-    background: radial-gradient(ellipse at 50% 40%, #2a1e12 0%, #13100e 70%);
+    background: #13100e;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 16px; cursor: pointer;
-    transition: opacity 0.8s ease, transform 0.8s ease;
+    gap: 12px; cursor: pointer; overflow: hidden;
+    transition: opacity 0.9s ease;
   }
-  #welcomeScreen.fade-out { opacity: 0; transform: scale(1.04); pointer-events: none; }
+  #welcomeScreen.fade-out { opacity: 0; pointer-events: none; }
+  /* 隐藏底部 hint，只保留标题 + 插图 */
+  #welcomeScreen .welcome-text-group:last-child { display: none; }
   .welcome-logo {
     font-family: 'Ma Shan Zheng', serif;
     font-size: clamp(3.2rem, 7vmin, 5.5rem); color: var(--warm); letter-spacing: 0.08em;
@@ -618,8 +634,8 @@
   }
   .welcome-sub { font-size: clamp(0.9rem, 2.2vmin, 1.4rem); color: var(--text-dim); letter-spacing: 0.05em; }
   .welcome-portrait {
-    width: min(300px, 45vmin); height: auto;
-    margin: 4px 0; image-rendering: pixelated;
+    width: min(300px, 52vmin); height: auto;
+    image-rendering: pixelated;
   }
   .welcome-hint {
     margin-top: 16px; font-size: 0.8rem; color: var(--text-dim);
@@ -651,10 +667,14 @@
 
 <!-- 欢迎界面 -->
 <div id="welcomeScreen">
-  <div class="welcome-logo" id="welcomeLogo">碎碎念</div>
-  <div class="welcome-sub" id="welcomeSub">Voice Diary · 你的 AI 语音日记</div>
+  <div class="welcome-text-group">
+    <div class="welcome-logo" id="welcomeLogo">碎碎念</div>
+    <div class="welcome-sub" id="welcomeSub">Voice Diary · 你的 AI 语音日记</div>
+  </div>
   <img class="welcome-portrait" src="/Portrait.png" alt="念念">
-  <div class="welcome-hint" id="welcomeHint">轻触开始</div>
+  <div class="welcome-text-group">
+    <div class="welcome-hint" id="welcomeHint">轻触开始</div>
+  </div>
 </div>
 
 <!-- iOS 顶部导航栏 -->
@@ -698,6 +718,12 @@
 
 <div id="todayView"><div class="main">
 
+  <!-- 补录日期 banner（补录过去某天时显示） -->
+  <div class="date-banner" id="dateBanner" style="display:none">
+    <span class="date-banner-text" id="dateBannerText"></span>
+    <button onclick="clearActiveDate()" data-i18n-key="backToToday">× 返回今天</button>
+  </div>
+
   <!-- Record Area -->
   <div class="record-area">
     <div class="timer" id="timer">0:00</div>
@@ -714,11 +740,11 @@
   <div class="speaking-wave" id="speakWave">
     <span></span><span></span><span></span><span></span><span></span>
   </div>
-  <button class="end-conv-btn" id="endConvBtn" onclick="endConversation()"><span data-i18n="endConv">■ 结束对话</span></button>
+<button class="end-conv-btn" id="endConvBtn" onclick="endConversation()"><span data-i18n="endConv">■ 结束对话</span></button>
 
   <!-- Today's entries -->
   <div class="section-title">
-    <span data-i18n="sectionToday">今日记录</span>
+    <span id="sectionTodayLabel" data-i18n="sectionToday">今日记录</span>
     <span id="entryCount" style="color:var(--warm);font-size:0.8rem"></span>
   </div>
 
@@ -734,7 +760,7 @@
   </button>
 
   <div class="summary-card" id="summaryCard">
-    <div class="summary-label" data-i18n="summaryLabel">✦ 今日日记</div>
+    <div class="summary-label" id="summaryLabel" data-i18n="summaryLabel">✦ 今日日记</div>
     <div class="summary-title" id="summaryTitle"></div>
     <div class="summary-text" id="summaryText"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -812,12 +838,12 @@
       copyBtn: '复制全文', illusBtn: '✦ 生成插图',
       exportBtn: '↓ 导出全部日记为 Word',
       weekdays: ['日','一','二','三','四','五','六'],
-      connecting: '连接中...', greeting: '念念正在问候...',
+      connecting: '正在连接服务器...', connecting2: '正在唤醒念念...', connecting3: '念念快准备好了...', greeting: '念念正在问候...',
       convActive: '正在对话，说完会自动回应',
       transcribing: '<span class="spinner"></span>正在转文字...',
       summarizing: '<span class="spinner"></span>AI 整理中...',
       regen: '✦ 重新生成', entries: '条',
-      connFail: '连接失败，请重试', saved: '对话已保存 ✓',
+      connFail: '连接超时，请重试', connSlow: 'Gemini 模型初始化较慢，稍等片刻再试', saved: '对话已保存 ✓',
       clickSummary: '点击生成今日总结',
       noAudio: '找不到录音文件', copyDone: '已复制',
       transcribeFail: '转文字失败，请重试', netFail: '网络错误，请重试',
@@ -825,13 +851,14 @@
       illusGenerating: '✦ 生成中...', illusFail: '插图生成失败',
       playHint: '播放录音', hideHint: '隐藏', showHint: '显示', deleteBtnTitle: '删除',
       noRecord: '这天没有记录', daySum: '✦ 当日总结', regenSum: '重新生成总结',
-      genSum: '✦ 生成当日总结', searchPlaceholder: '搜索所有日记...',
+      genSum: '✦ 生成当日总结', addEntryBtn: '✎ 为这天补录', backToToday: '× 返回今天', searchPlaceholder: '搜索所有日记...',
       searchEmpty: '没有找到相关记录', searchFound: '找到',  searchFoundSuffix: '条记录',
       noteToast: '念念帮你记下了一条笔记 📌',
       welcomeHint: '轻触开始', welcomeSub: 'Voice Diary · 你的 AI 语音日记',
       recording: '录音中，再按一次停止', micFail: '无法访问麦克风，请检查权限',
       convRecorded: '对话已记录', convErr: '对话出错：',
       noRecordForSum: '该日没有可用记录', sumGenerating: '生成总结中...',
+      rateLimited: 'API 请求过于频繁，请稍后再试',
       genFail: '生成失败，请重试', illusNeedContent: '请先记录内容或生成总结',
       illusGeneratingLong: '正在生成插图，约需 10 秒...', illusGenerated: '插图生成完成',
       illusFail2: '插图生成失败，请重试', noExport: '没有可导出的内容',
@@ -851,12 +878,12 @@
       copyBtn: 'Copy', illusBtn: '✦ Illustrate',
       exportBtn: '↓ Export All to Word',
       weekdays: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
-      connecting: 'Connecting...', greeting: 'Niannian is greeting you...',
+      connecting: 'Connecting to server...', connecting2: 'Waking up Niannian...', connecting3: 'Almost ready...', greeting: 'Niannian is greeting you...',
       convActive: 'Listening... responds when you pause',
       transcribing: '<span class="spinner"></span>Transcribing...',
       summarizing: '<span class="spinner"></span>AI summarizing...',
       regen: '✦ Regenerate', entries: '',
-      connFail: 'Connection failed, please retry', saved: 'Chat saved ✓',
+      connFail: 'Connection timed out, please retry', connSlow: 'Gemini model init takes ~20s, try again shortly', saved: 'Chat saved ✓',
       clickSummary: 'Click to generate summary',
       noAudio: 'Audio file not found', copyDone: 'Copied',
       transcribeFail: 'Transcription failed, please retry', netFail: 'Network error, please retry',
@@ -864,13 +891,14 @@
       illusGenerating: '✦ Generating...', illusFail: 'Illustration failed',
       playHint: 'Play recording', hideHint: 'Hide', showHint: 'Show', deleteBtnTitle: 'Delete',
       noRecord: 'No entries for this day', daySum: '✦ Day Summary', regenSum: 'Regenerate Summary',
-      genSum: '✦ Generate Summary', searchPlaceholder: 'Search all entries...',
+      genSum: '✦ Generate Summary', addEntryBtn: '✎ Add Entry', backToToday: '× Back to Today', searchPlaceholder: 'Search all entries...',
       searchEmpty: 'No matching entries', searchFound: 'Found', searchFoundSuffix: 'entries',
       noteToast: 'Niannian saved a note for you 📌',
       welcomeHint: 'Tap to begin', welcomeSub: 'Your AI Voice Diary',
       recording: 'Recording... tap again to stop', micFail: 'Cannot access microphone, check permissions',
       convRecorded: 'Chat recorded', convErr: 'Chat error: ',
       noRecordForSum: 'No entries for this date', sumGenerating: 'Generating summary...',
+      rateLimited: 'Too many requests. Please try again later.',
       genFail: 'Generation failed, please retry', illusNeedContent: 'Add entries or generate a summary first',
       illusGeneratingLong: 'Generating illustration (~10 sec)...', illusGenerated: 'Illustration generated',
       illusFail2: 'Illustration failed, please retry', noExport: 'Nothing to export',
@@ -911,6 +939,34 @@
     currentLang = currentLang === 'zh' ? 'en' : 'zh';
     localStorage.setItem('vd_lang', currentLang);
     applyI18n();
+    refreshSummaryTranslations();
+  }
+
+  async function refreshSummaryTranslations() {
+    // 1. 今日视图的总结卡片
+    const card = document.getElementById('summaryCard');
+    if (card?.classList.contains('visible')) {
+      const dateStr = getActiveDateStr();
+      const normDate = dateStr.replace(/\//g, '-');
+      const raw = summaries[dateStr] || summaries[normDate] || summaries[dateStr.replace(/-/g, '/')];
+      if (raw) {
+        const needsTrans = (currentLang === 'en' && isChinese(raw)) ||
+                           (currentLang === 'zh' && !isChinese(raw));
+        if (needsTrans) {
+          document.getElementById('summaryText').textContent = t('translating');
+          const tx = await getTranslated(normDate, raw, currentLang);
+          document.getElementById('summaryText').textContent = tx || raw;
+        } else {
+          document.getElementById('summaryText').textContent = raw;
+        }
+      }
+    }
+    // 2. 日历面板（如果打开的话）
+    const panel = document.getElementById('calDayPanel');
+    if (panel?.style.display !== 'none' && calSelected) {
+      const sel = document.querySelector('.cal-day.selected');
+      if (sel) selectDay(calSelected, sel);
+    }
   }
 
   // ===== Welcome Screen =====
@@ -918,9 +974,9 @@
     const el = document.getElementById('welcomeScreen');
     if (!el || el.style.display === 'none') return;
     el.classList.add('fade-out');
-    setTimeout(() => { el.style.display = 'none'; }, 800);
+    setTimeout(() => { el.style.display = 'none'; }, 900);
   }
-  setTimeout(dismissWelcome, 3500);
+  setTimeout(dismissWelcome, 2500);
 
   // Theme
   function setTheme(t) {
@@ -966,13 +1022,15 @@
   let workletNode = null;
   let micStream = null;
   let nextPlayTime = 0;
+  let activeSources = [];  // 追踪活跃的 AudioBufferSourceNode，stopPlayback 时调用 .stop()
   let convActive = false;
   let partialEls = {};     // {user: HTMLElement, model: HTMLElement}
   let audioSendStart = null;   // 记录开始发送音频的时间
   let forceEndTimer = null;    // 12s 超时计时器
-  let connectTimer = null;     // 15s 连接超时
-  const VAD_THRESHOLD = 6000;  // 客户端 VAD RMS 阈值（16-bit PCM，直接对麦说话约 8000-30000，扬声器室内反射约 500-3000）
-  const VAD_FRAMES_REQUIRED = 8;  // 需要连续 N 帧超过阈值才触发打断（防误触，8帧≈64ms）
+  let connectTimer = null;     // 连接超时
+  let connectMsgTimer = null;  // 连接期间循环状态文字计时器
+  const VAD_THRESHOLD = 5000;  // 客户端 VAD RMS 阈值（外放回声可达 2000-3000，需高于此值）
+  const VAD_FRAMES_REQUIRED = 6;  // 连续 6 帧≈48ms，要求更持续的说话才打断，避免回声/噪音误触
   let vadFrameCount = 0;       // 当前连续高能量帧计数
   let masterGain = null;       // GainNode 主音量，用于立即静音
   let modelSpeaking = false;   // 模型正在说话期间，不启动 forceEnd 计时器
@@ -1095,11 +1153,16 @@
     setPlayBtn(id, true);
   }
 
+  let activeDate = null;  // 当补录过去某天时，覆盖"今日"的日期
+
   // Filter today's entries
   function getTodayStr() {
     const locale = currentLang === 'en' ? 'en-CA' : 'zh-CN';
     return new Date().toLocaleDateString(locale, { year:'numeric', month:'2-digit', day:'2-digit' });
   }
+
+  // 返回当前活跃日期（补录模式下为 activeDate，否则为今天）
+  function getActiveDateStr() { return activeDate || getTodayStr(); }
 
   function saveEntries() {
     localStorage.setItem('vd_entries', JSON.stringify(entries));
@@ -1120,7 +1183,8 @@
 
   // Render entries
   function renderEntries() {
-    const todayEntries = entries.filter(e => e.date === getTodayStr());
+    const activeDateStr = getActiveDateStr();
+    const todayEntries = entries.filter(e => e.date === activeDateStr);
     const list = document.getElementById('entriesList');
     const empty = document.getElementById('emptyState');
     const count = document.getElementById('entryCount');
@@ -1128,6 +1192,9 @@
 
     count.textContent = todayEntries.length > 0 ? `${todayEntries.length}${t('entries') ? ' ' + t('entries') : ''}` : '';
     summaryBtn.disabled = todayEntries.length < 1;
+    // 更新区块标题：补录模式显示日期，否则显示"今日记录"
+    const sectionLabel = document.getElementById('sectionTodayLabel');
+    if (sectionLabel) sectionLabel.textContent = activeDate ? activeDate : t('sectionToday');
 
     // Clear and re-render
     const existingCards = list.querySelectorAll('.entry-card');
@@ -1205,6 +1272,16 @@
     document.getElementById('recordHint').textContent = t('connecting');
     document.getElementById('recordBtn').disabled = true;
 
+    // 连接期间每秒更新等待秒数，让用户知道正在进行中（Gemini 模型初始化通常需要 10-30s）
+    let connSecs = 0;
+    const connPhases = [t('connecting'), t('connecting2'), t('connecting3')];
+    connectMsgTimer = setInterval(() => {
+      connSecs++;
+      const phase = connSecs < 8 ? connPhases[0] : connSecs < 18 ? connPhases[1] : connPhases[2];
+      const hint = document.getElementById('recordHint');
+      if (hint && convActive && !captureCtx) hint.textContent = `${phase} (${connSecs}s)`;
+    }, 1000);
+
     // iOS 媒体声道解锁（让硬件音量键生效）
     try {
       const _sil = document.createElement('audio');
@@ -1213,17 +1290,19 @@
       await _sil.play();
     } catch(e) {}
 
-    // 30s 连接超时：若未收到 ready 则自动重置（冷启动 + 模型初始化需要更多时间）
+    // 35s 连接超时：若未收到 ready 则重置并提示重试
     connectTimer = setTimeout(() => {
       if (convActive && !captureCtx) {
-        showToast(t('connFail'));
         resetConvUI();
+        document.getElementById('recordHint').innerHTML =
+          `<span style="color:var(--red)">${t('connFail')}</span><br>` +
+          `<span style="font-size:0.75rem;opacity:0.6">${t('connSlow')}</span>`;
       }
-    }, 30000);
+    }, 35000);
 
-    liveWs = new WebSocket(WS_URL);
+    liveWs = new WebSocket(WS_URL + '?lang=' + currentLang);
     liveWs.onopen = () => {
-      const todayStr = getTodayStr();
+      const todayStr = getActiveDateStr();
       const todayTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const recentEntries = entries
@@ -1248,6 +1327,7 @@
 
     if (msg.type === 'ready') {
       clearTimeout(connectTimer); connectTimer = null;
+      clearInterval(connectMsgTimer); connectMsgTimer = null;
       // 开始麦克风采集（PCM 16kHz）
       // iOS Safari: don't specify exact sampleRate in getUserMedia (causes OverconstrainedError)
       // iOS Safari: AudioContext ignores sampleRate hint, use native rate + downsample in worklet
@@ -1269,6 +1349,7 @@
           if (liveWs?.readyState !== 1) return;
           // 客户端 VAD：连续 N 帧超过阈值才打断（防回声/噪音误触）
           if (modelSpeaking && !userBargedIn) {
+            // 客户端 VAD 检测用户说话（模型说话时不发送音频给 Gemini，避免回声干扰）
             const samples = new Int16Array(e.data);
             let sum = 0;
             for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
@@ -1278,20 +1359,23 @@
                 modelSpeaking = false;
                 userBargedIn = true;
                 vadFrameCount = 0;
-                // 安全超时：若模型 15s 内未完成轮次则自动解除打断锁
+                // 向服务器发送打断信号，让 Gemini 立即停止生成
+                if (liveWs?.readyState === 1)
+                  liveWs.send(JSON.stringify({ type: 'interrupt' }));
                 clearTimeout(bargeInTimer);
                 bargeInTimer = setTimeout(() => { userBargedIn = false; bargeInTimer = null; }, 15000);
               }
             } else {
               vadFrameCount = 0;
             }
+            return; // 模型说话期间屏蔽麦克风回声，不发送给 Gemini
           }
-          // model 说话时不向 Gemini 发送麦克风音频（防止回声被 Gemini 误识别为用户语音，导致模型提前截断）
-          if (modelSpeaking) return;
-          const b64 = btoa(String.fromCharCode(...new Uint8Array(e.data)));
+          const bytes = new Uint8Array(e.data);
+          let str = ''; for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+          const b64 = btoa(str);
           liveWs.send(JSON.stringify({ type: 'audio', data: b64 }));
           // 首次发送时启动超时计时器（必须等念念完成首次回复后才启动，防止截断问候语）
-          if (!audioSendStart && !modelSpeaking && modelHasSpoken) {
+          if (!audioSendStart && !modelSpeaking && modelHasSpoken && !userBargedIn) {
             audioSendStart = Date.now();
             forceEndTimer = setTimeout(() => {
               if (liveWs?.readyState === 1) {
@@ -1303,6 +1387,15 @@
           }
         };
         source.connect(workletNode);
+
+        // 在用户手势链中预创建 playbackCtx，避免 iOS AudioContext 被挂起
+        if (!playbackCtx) {
+          playbackCtx = new AudioContext({ sampleRate: 24000 });
+          masterGain = playbackCtx.createGain();
+          masterGain.connect(playbackCtx.destination);
+          nextPlayTime = 0;
+        }
+        if (playbackCtx.state === 'suspended') await playbackCtx.resume();
 
         document.getElementById('recordBtn').disabled = false;
         document.getElementById('recordHint').textContent = t('greeting');
@@ -1330,14 +1423,6 @@
       clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
 
     } else if (msg.type === 'partial') {
-      // 用户开口打断：立即停止 agent 播放
-      if (msg.role === 'user' && modelSpeaking) {
-        stopPlayback();
-        modelSpeaking = false;
-        userBargedIn = true;
-        clearTimeout(bargeInTimer);
-        bargeInTimer = setTimeout(() => { userBargedIn = false; bargeInTimer = null; }, 15000);
-      }
       // 用户开口时重置模型气泡合并状态
       if (msg.role === 'user') {
         lastModelBubble = null;
@@ -1374,7 +1459,7 @@
     } else if (msg.type === 'save_note') {
       const id = Date.now();
       const timeStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-      entries.push({ id, date: getTodayStr(), time: timeStr, text: '📌 ' + msg.text, loading: false });
+      entries.push({ id, date: getActiveDateStr(), time: timeStr, text: '📌 ' + msg.text, loading: false });
       saveEntries();
       renderEntries();
       showToast(t('noteToast'));
@@ -1450,6 +1535,7 @@
     modelHasSpoken = false;
     vadFrameCount = 0;
     clearTimeout(connectTimer); connectTimer = null;
+    clearInterval(connectMsgTimer); connectMsgTimer = null;
     clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
     clearTimeout(bargeInTimer); bargeInTimer = null;
     lastModelBubble = null; lastModelTextPrefix = '';
@@ -1464,7 +1550,7 @@
     document.getElementById('recordBtn').classList.remove('recording');
     document.getElementById('recordBtn').disabled = false;
     document.getElementById('endConvBtn').classList.remove('active');
-    document.getElementById('speakWave').classList.remove('active');
+document.getElementById('speakWave').classList.remove('active');
     document.getElementById('recordHint').innerHTML =
       t('recordHint') + '<br><span style="font-size:0.75rem;opacity:0.6">' + t('recordHintSub') + '</span>';
   }
@@ -1482,7 +1568,7 @@
           `<span class="conv-role">${role}</span>${escHtml(item.text)}</div>`;
       }).join('');
       const entryText = `🎙️ <div class="conv-entry">${turns}</div>`;
-      entries.push({ id, date: getTodayStr(), time: timeStr, text: entryText, loading: false });
+      entries.push({ id, date: getActiveDateStr(), time: timeStr, text: entryText, loading: false });
       saveEntries();
       if (convModelPCM.length > 0) {
         const wavBlob = encodeWAV(convModelPCM, 24000);
@@ -1517,24 +1603,33 @@
   }
 
   // 立即停止 agent 语音播放（用户打断时调用）
+  // 保留 AudioContext 以避免 iOS 重新创建时的挂起问题，只静音 + 重置调度时间
   function stopPlayback() {
-    if (playbackCtx) {
-      if (masterGain) masterGain.gain.setValueAtTime(0, playbackCtx.currentTime);
-      playbackCtx.close().catch(() => {});
-      playbackCtx = null;
-      masterGain = null;
-      nextPlayTime = 0;
+    if (masterGain && playbackCtx) {
+      masterGain.gain.cancelScheduledValues(playbackCtx.currentTime);
+      masterGain.gain.setValueAtTime(0, playbackCtx.currentTime);
     }
+    // 停止所有已排队的 AudioBufferSourceNode，防止恢复 gain 后旧音频 bleed-through
+    for (const src of activeSources) {
+      try { src.stop(); } catch {}
+    }
+    activeSources = [];
+    nextPlayTime = 0;
     document.getElementById('speakWave').classList.remove('active');
   }
 
-  // PCM 音频播放（Int16 24kHz → AudioContext 排队播放）
+// PCM 音频播放（Int16 24kHz → AudioContext 排队播放）
   function playPCMChunk(b64, sampleRate) {
     if (!playbackCtx) {
       playbackCtx = new AudioContext({ sampleRate });
       masterGain = playbackCtx.createGain();
       masterGain.connect(playbackCtx.destination);
       nextPlayTime = 0;
+    }
+    // 恢复增益（可能被 stopPlayback 静音过）
+    if (masterGain.gain.value === 0) {
+      masterGain.gain.cancelScheduledValues(playbackCtx.currentTime);
+      masterGain.gain.setValueAtTime(1, playbackCtx.currentTime);
     }
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
@@ -1549,7 +1644,11 @@
     src.connect(masterGain);
     const startAt = Math.max(playbackCtx.currentTime, nextPlayTime);
     src.start(startAt);
-    src.onended = () => src.disconnect();
+    activeSources.push(src);
+    src.onended = () => {
+      src.disconnect();
+      activeSources = activeSources.filter(s => s !== src);
+    };
     nextPlayTime = startAt + buf.duration;
   }
 
@@ -1606,7 +1705,7 @@
 
     const id = Date.now();
     const timeStr = new Date().toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
-    entries.push({ id, date: getTodayStr(), time: timeStr, text: '', loading: true });
+    entries.push({ id, date: getActiveDateStr(), time: timeStr, text: '', loading: true });
     renderEntries();
 
     try {
@@ -1640,7 +1739,8 @@
     const card = document.getElementById('summaryCard');
     const text = document.getElementById('summaryText');
 
-    const todayEntries = entries.filter(e => e.date === getTodayStr() && !e.loading && e.text && !e.hidden);
+    const activeDateStr = getActiveDateStr();
+    const todayEntries = entries.filter(e => e.date === activeDateStr && !e.loading && e.text && !e.hidden);
     if (todayEntries.length === 0) return;
 
     btn.disabled = true;
@@ -1654,8 +1754,9 @@
         body: JSON.stringify({ entries: todayEntries, lang: currentLang })
       });
       const data = await res.json();
+      if (res.status === 429) { showToast(t('rateLimited')); return; }
       if (data.summary) {
-        const today = getTodayStr();
+        const today = activeDateStr;
         titles[today] = data.title || '';
         localStorage.setItem('vd_titles', JSON.stringify(titles));
         summaries[today] = data.summary;
@@ -1749,7 +1850,14 @@
   }
 
   // View switching
-  function switchView(view) {
+  // dateOverride: 传入日期字符串时进入补录模式；不传时（普通 tab 点击）清除补录状态
+  function switchView(view, dateOverride) {
+    if (view === 'today') {
+      activeDate = dateOverride || null;
+      updateDateBanner();
+      renderEntries();
+      updateTodayViewForDate(getActiveDateStr());
+    }
     document.getElementById('todayView').style.display = view === 'today' ? '' : 'none';
     document.getElementById('albumView').style.display = view === 'album' ? '' : 'none';
     document.getElementById('calendarView').style.display = view === 'calendar' ? '' : 'none';
@@ -1758,6 +1866,52 @@
     document.getElementById('tabCalendar').classList.toggle('active', view === 'calendar');
     if (view === 'calendar') renderCalendar();
     if (view === 'album') renderAlbum();
+  }
+
+  function openDayEditor(dateStr) {
+    switchView('today', dateStr);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function clearActiveDate() {
+    switchView('today');
+  }
+
+  function updateDateBanner() {
+    const banner = document.getElementById('dateBanner');
+    const bannerText = document.getElementById('dateBannerText');
+    const summaryLabel = document.getElementById('summaryLabel');
+    if (activeDate) {
+      bannerText.textContent = currentLang === 'en'
+        ? `Adding entry for ${activeDate}`
+        : `正在为 ${activeDate} 补录日记`;
+      banner.style.display = '';
+      if (summaryLabel) summaryLabel.textContent = `✦ ${activeDate}`;
+    } else {
+      banner.style.display = 'none';
+      if (summaryLabel) summaryLabel.textContent = t('summaryLabel');
+    }
+  }
+
+  function updateTodayViewForDate(dateStr) {
+    const card = document.getElementById('summaryCard');
+    const btn = document.getElementById('summaryBtn');
+    const summaryText = summaries[dateStr];
+    document.getElementById('summaryTitle').textContent = titles[dateStr] || '';
+    document.getElementById('summaryText').textContent = summaryText || '';
+    if (summaryText) {
+      card.classList.add('visible');
+      if (btn) btn.innerHTML = t('regen');
+    } else {
+      card.classList.remove('visible');
+      if (btn) btn.innerHTML = t('summaryBtn');
+    }
+    getIllus(dateStr).then(dataUrl => {
+      const area = document.getElementById('illustrationArea');
+      if (area) area.innerHTML = dataUrl
+        ? `<img src="${dataUrl}" style="width:100%;border-radius:12px;margin-top:4px;display:block">`
+        : '';
+    });
   }
 
   function isChinese(text) { return /[\u4e00-\u9fff]/.test(text); }
@@ -1952,7 +2106,11 @@
     document.querySelectorAll('.cal-day.selected').forEach(d => d.classList.remove('selected'));
     el.classList.add('selected');
 
-    const dayEntries = entries.filter(e => e.date === dateStr && !e.loading);
+    // 归一化日期格式（斜杠↔短横线），兼容补录条目与原始条目
+    const normDate = dateStr.replace(/\//g, '-');
+    const altDate  = dateStr.replace(/-/g, '/');
+
+    const dayEntries = entries.filter(e => e.date.replace(/\//g, '-') === normDate && !e.loading);
     const panel = document.getElementById('calDayPanel');
     const title = document.getElementById('calDayTitle');
     const list = document.getElementById('calDayEntries');
@@ -1976,21 +2134,31 @@
     }
 
     // Summary section
+    // 用斜杠和短横线两种格式都尝试，兼容不同语言模式下保存的总结
     const summaryDiv = document.createElement('div');
     summaryDiv.style.marginTop = '16px';
-    const existingSummary = summaries[dateStr];
+    const existingSummary = summaries[dateStr] || summaries[normDate] || summaries[altDate];
+    const existingTitle   = titles[dateStr]    || titles[normDate]    || titles[altDate];
     if (existingSummary) {
+      const needsTrans = (currentLang === 'en' && isChinese(existingSummary)) ||
+                         (currentLang === 'zh' && !isChinese(existingSummary));
       summaryDiv.innerHTML = `
         <div class="summary-label" style="margin-bottom:8px">${t('daySum')}</div>
-        ${titles[dateStr] ? `<div style="font-size:1rem;font-weight:600;color:var(--warm);margin-bottom:8px">${titles[dateStr]}</div>` : ''}
-        <div style="font-size:0.85rem;line-height:1.8;color:var(--text);white-space:pre-wrap">${existingSummary}</div>
+        ${existingTitle ? `<div style="font-size:1rem;font-weight:600;color:var(--warm);margin-bottom:8px">${existingTitle}</div>` : ''}
+        <div id="calDaySummaryText" style="font-size:0.85rem;line-height:1.8;color:var(--text);white-space:pre-wrap">${needsTrans ? t('translating') : existingSummary}</div>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="copy-btn" style="margin-top:0" onclick="generateSummaryForDate('${dateStr}')">${t('regenSum')}</button>
-          <button class="copy-btn" style="margin-top:0" onclick="generateIllus('${dateStr}')">${t('illusBtn')}</button>
+          <button class="copy-btn" style="margin-top:0" onclick="generateSummaryForDate('${normDate}')">${t('regenSum')}</button>
+          <button class="copy-btn" style="margin-top:0" onclick="generateIllus('${normDate}')">${t('illusBtn')}</button>
         </div>`;
+      if (needsTrans) {
+        getTranslated(normDate, existingSummary, currentLang).then(tx => {
+          const el = document.getElementById('calDaySummaryText');
+          if (el) el.textContent = tx || existingSummary;
+        });
+      }
     } else if (dayEntries.length > 0) {
       summaryDiv.innerHTML = `
-        <button class="copy-btn" style="margin-top:0" onclick="generateSummaryForDate('${dateStr}')">${t('genSum')}</button>`;
+        <button class="copy-btn" style="margin-top:0" onclick="generateSummaryForDate('${normDate}')">${t('genSum')}</button>`;
     }
     list.appendChild(summaryDiv);
 
@@ -2003,13 +2171,22 @@
       list.appendChild(imgDiv);
     }
 
+    // 补录按钮
+    const addBtn = document.createElement('button');
+    addBtn.className = 'copy-btn';
+    addBtn.style.cssText = 'margin-top:12px;width:100%';
+    addBtn.textContent = t('addEntryBtn');
+    addBtn.onclick = () => openDayEditor(normDate);
+    list.appendChild(addBtn);
+
     panel.style.display = '';
     panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
   }
 
   // Generate summary for any date (used from calendar view)
   async function generateSummaryForDate(dateStr) {
-    const dateEntries = entries.filter(e => e.date === dateStr && !e.loading && e.text && !e.hidden);
+    const normD = dateStr.replace(/\//g, '-');
+    const dateEntries = entries.filter(e => e.date.replace(/\//g, '-') === normD && !e.loading && e.text && !e.hidden);
     if (!dateEntries.length) { showToast(t('noRecordForSum')); return; }
     showToast(t('sumGenerating'));
     try {
@@ -2018,6 +2195,7 @@
         body: JSON.stringify({ entries: dateEntries, lang: currentLang })
       });
       const data = await res.json();
+      if (res.status === 429) { showToast(t('rateLimited')); return; }
       if (data.summary) {
         titles[dateStr] = data.title || '';
         localStorage.setItem('vd_titles', JSON.stringify(titles));
@@ -2025,7 +2203,7 @@
         localStorage.setItem('vd_summaries', JSON.stringify(summaries));
         const sel = document.querySelector('.cal-day.selected');
         if (sel && calSelected === dateStr) selectDay(dateStr, sel);
-        if (dateStr === getTodayStr()) {
+        if (dateStr === getActiveDateStr()) {
           document.getElementById('summaryTitle').textContent = data.title || '';
           document.getElementById('summaryText').textContent = data.summary;
           document.getElementById('summaryCard').classList.add('visible');
@@ -2036,7 +2214,7 @@
 
   // Generate illustration for any date
   async function generateIllus(dateStr) {
-    dateStr = dateStr || getTodayStr();
+    dateStr = dateStr || getActiveDateStr();
     const dateEntries = entries.filter(e => e.date === dateStr && !e.loading && e.text && !e.hidden);
     const summary = summaries[dateStr] || '';
     if (!dateEntries.length && !summary) { showToast(t('illusNeedContent')); return; }
@@ -2049,7 +2227,7 @@
       const data = await res.json();
       if (data.imageData) {
         await saveIllus(dateStr, data.imageData);
-        if (dateStr === getTodayStr()) {
+        if (dateStr === getActiveDateStr()) {
           const area = document.getElementById('illustrationArea');
           if (area) area.innerHTML = `<img src="${data.imageData}" style="width:100%;border-radius:12px;margin-top:4px;display:block">`;
         }
