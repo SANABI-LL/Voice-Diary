@@ -218,8 +218,16 @@
     margin-bottom:3px; letter-spacing:0.05em; }
 
   /* ===== Album 相册 ===== */
-  .album-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; padding:12px 16px; }
-  .album-card { position:relative; aspect-ratio:1; cursor:pointer; }
+  .album-grid {
+    display:grid; grid-template-columns:repeat(2,1fr); gap:10px;
+    padding:12px 14px 80px; }
+  @media (min-width:480px) {
+    .album-grid { grid-template-columns:repeat(3,1fr); gap:12px; } }
+  .album-card { position:relative; aspect-ratio:1; cursor:pointer;
+    border-radius:16px; overflow:hidden;
+    box-shadow:0 2px 12px rgba(0,0,0,0.25);
+    transition:transform 0.18s, box-shadow 0.18s; }
+  .album-card:active { transform:scale(0.97); }
   .album-card-inner {
     width:100%; height:100%; position:relative;
     transform-style:preserve-3d; transition:transform 0.5s cubic-bezier(0.4,0,0.2,1); }
@@ -228,20 +236,52 @@
     position:absolute; inset:0; border-radius:16px; overflow:hidden;
     backface-visibility:hidden; -webkit-backface-visibility:hidden; }
   .album-card-front img { width:100%; height:100%; object-fit:cover; display:block; }
+  /* 正面渐变叠加：日期 + 标题始终可见 */
+  .album-card-overlay {
+    position:absolute; bottom:0; left:0; right:0; pointer-events:none;
+    background:linear-gradient(transparent 30%, rgba(0,0,0,0.68));
+    padding:28px 10px 10px; }
+  .album-card-overlay-date {
+    font-size:0.6rem; color:rgba(255,255,255,0.75); letter-spacing:0.1em; }
+  .album-card-overlay-title {
+    font-size:0.75rem; font-weight:600; color:#fff;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+  /* 点赞按钮 */
+  .album-like-btn {
+    position:absolute; top:8px; right:8px; z-index:5;
+    width:30px; height:30px; border-radius:50%;
+    background:rgba(0,0,0,0.32); backdrop-filter:blur(6px);
+    border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    font-size:0.9rem; line-height:1; color:#fff;
+    transition:transform 0.15s, background 0.2s; }
+  .album-like-btn:active { transform:scale(1.35); }
+  .album-like-btn.liked { background:rgba(220,50,50,0.82); }
+  /* 翻面：总结信息 */
   .album-card-back {
     transform:rotateY(180deg);
-    background:var(--bg2); border:1px solid rgba(232,168,87,0.3);
-    padding:14px; display:flex; flex-direction:column; gap:6px; overflow:hidden; }
-  .album-card-date { font-size:0.68rem; color:var(--warm); letter-spacing:0.1em; flex-shrink:0; }
-  .album-card-title { font-size:0.82rem; font-weight:600; color:var(--text); flex-shrink:0; }
+    background:var(--bg2); border:1px solid rgba(232,168,87,0.25);
+    padding:12px; display:flex; flex-direction:column; gap:5px; overflow:hidden; }
+  .album-card-date { font-size:0.65rem; color:var(--warm); letter-spacing:0.1em; flex-shrink:0; }
+  .album-card-title { font-size:0.8rem; font-weight:600; color:var(--text); flex-shrink:0; }
   .album-card-summary {
-    font-size:0.72rem; line-height:1.6; color:var(--text-dim); flex:1; overflow:hidden; }
+    font-size:0.7rem; line-height:1.55; color:var(--text-dim); flex:1; overflow:hidden; }
   .album-card-summary.clamped {
     display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
   .album-expand-btn {
-    flex-shrink:0; margin-top:4px; padding:2px 0; background:none; border:none; cursor:pointer;
-    font-size:0.68rem; color:var(--warm); letter-spacing:0.03em; text-align:left; }
-  .album-empty { text-align:center; padding:60px 20px; color:var(--text-dim); font-size:0.88rem; }
+    flex-shrink:0; margin-top:2px; padding:2px 0; background:none; border:none; cursor:pointer;
+    font-size:0.65rem; color:var(--warm); letter-spacing:0.03em; text-align:left; }
+  /* 相册顶部筛选栏 */
+  .album-toolbar {
+    display:flex; align-items:center; gap:8px; padding:10px 14px 2px;
+    font-size:0.75rem; color:var(--text-dim); }
+  .album-filter-btn {
+    padding:4px 10px; border-radius:20px; border:1px solid var(--border);
+    background:none; color:var(--text-dim); font-size:0.72rem; cursor:pointer;
+    transition:background 0.15s, color 0.15s, border-color 0.15s; }
+  .album-filter-btn.active {
+    background:var(--warm); color:#13100e; border-color:var(--warm); font-weight:600; }
+  .album-count { margin-left:auto; font-size:0.7rem; color:var(--text-dim); }
+  .album-empty { text-align:center; padding:60px 20px; color:var(--text-dim); font-size:0.88rem; grid-column:1/-1; }
   /* Album detail overlay */
   .album-detail-overlay {
     position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.6);
@@ -773,6 +813,11 @@
 </div></div>
 
 <div id="albumView" class="main" style="display:none">
+  <div class="album-toolbar">
+    <button class="album-filter-btn active" id="albumFilterAll" onclick="setAlbumFilter('all')" data-i18n="albumAll">全部</button>
+    <button class="album-filter-btn" id="albumFilterLiked" onclick="setAlbumFilter('liked')" data-i18n="albumLiked">♥ 已喜欢</button>
+    <span class="album-count" id="albumCount"></span>
+  </div>
   <div id="albumGrid" class="album-grid"></div>
 </div>
 
@@ -830,6 +875,7 @@
     zh: {
       appName: '碎碎念', tabToday: '今日', tabAlbum: '相册', tabCalendar: '日历',
       albumEmpty: '还没有插图，先去生成一张吧',
+      albumAll: '全部', albumLiked: '♥ 已喜欢', albumNoLiked: '还没有喜欢的插图',
       recordHint: '按下开始与念念对话', recordHintSub: 'AI语音陪伴 · 对话结束后生成总结',
       recordHintDone: '按下开始说话', recordHintDoneSub: '说完松开，自动转文字',
       endConv: '■ 结束对话', sectionToday: '今日记录',
@@ -870,6 +916,7 @@
     en: {
       appName: 'Voice Diary', tabToday: 'Today', tabAlbum: 'Album', tabCalendar: 'Calendar',
       albumEmpty: 'No illustrations yet. Generate one first!',
+      albumAll: 'All', albumLiked: '♥ Liked', albumNoLiked: 'No liked illustrations yet',
       recordHint: 'Tap to chat with Niannian', recordHintSub: 'AI voice companion · summary after chat',
       recordHintDone: 'Tap to record', recordHintDoneSub: 'Release to transcribe automatically',
       endConv: '■ End Chat', sectionToday: "Today's Entries",
@@ -1011,6 +1058,8 @@
   let summaries = JSON.parse(localStorage.getItem('vd_summaries') || '{}');
   let titles = JSON.parse(localStorage.getItem('vd_titles') || '{}');
   let translations = JSON.parse(localStorage.getItem('vd_translations') || '{}');
+  let likes = JSON.parse(localStorage.getItem('vd_likes') || '{}');
+  let albumFilter = 'all'; // 'all' | 'liked'
   let calYear, calMonth, calSelected = null;
   let currentAudio = null;
   let currentPlayId = null;
@@ -1981,17 +2030,37 @@ document.getElementById('speakWave').classList.remove('active');
     }
   }
 
+  function setAlbumFilter(filter) {
+    albumFilter = filter;
+    document.getElementById('albumFilterAll').classList.toggle('active', filter === 'all');
+    document.getElementById('albumFilterLiked').classList.toggle('active', filter === 'liked');
+    renderAlbum();
+  }
+
+  function toggleLike(dateStr, btn, e) {
+    e.stopPropagation();
+    likes[dateStr] = !likes[dateStr];
+    localStorage.setItem('vd_likes', JSON.stringify(likes));
+    btn.classList.toggle('liked', !!likes[dateStr]);
+    btn.textContent = likes[dateStr] ? '♥' : '♡';
+  }
+
   async function renderAlbum() {
     const grid = document.getElementById('albumGrid');
     grid.innerHTML = '';
     const all = await getAllIllus();
-    if (!all.length) {
-      grid.innerHTML = `<div class="album-empty" style="grid-column:1/-1">${t('albumEmpty')}</div>`;
+    all.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
+    const filtered = albumFilter === 'liked' ? all.filter(x => likes[x.dateStr]) : all;
+
+    const countEl = document.getElementById('albumCount');
+    if (countEl) countEl.textContent = filtered.length ? `${filtered.length} ${currentLang === 'en' ? 'photos' : '张'}` : '';
+
+    if (!filtered.length) {
+      grid.innerHTML = `<div class="album-empty">${albumFilter === 'liked' ? t('albumNoLiked') : t('albumEmpty')}</div>`;
       return;
     }
-    all.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
     const locale = currentLang === 'en' ? 'en-US' : 'zh-CN';
-    for (const { dateStr, dataUrl } of all) {
+    for (const { dateStr, dataUrl } of filtered) {
       const summary = summaries[dateStr] || '';
       const title = titles[dateStr] || '';
       const dateLabel = (() => {
@@ -1999,26 +2068,35 @@ document.getElementById('speakWave').classList.remove('active');
         catch { return dateStr; }
       })();
       const summaryText = summary || (currentLang === 'en' ? 'No summary yet' : '暂无总结');
-      // Show cached translation on card if available
       const cacheKey = `${dateStr}|${currentLang}`;
       const displayText = translations[cacheKey] || summaryText;
+      const isLiked = !!likes[dateStr];
+
       const card = document.createElement('div');
       card.className = 'album-card';
       card.innerHTML = `
         <div class="album-card-inner">
-          <div class="album-card-front"><img src="${dataUrl}" alt="${dateStr}"></div>
+          <div class="album-card-front">
+            <img src="${dataUrl}" alt="${dateStr}">
+            <div class="album-card-overlay">
+              <div class="album-card-overlay-date">${dateLabel}</div>
+              ${title ? `<div class="album-card-overlay-title">${title}</div>` : ''}
+            </div>
+          </div>
           <div class="album-card-back">
             <div class="album-card-date">${dateLabel}</div>
             ${title ? `<div class="album-card-title">${title}</div>` : ''}
             <div class="album-card-summary clamped">${displayText}</div>
             <button class="album-expand-btn">${t('expandBtn')}</button>
           </div>
-        </div>`;
+        </div>
+        <button class="album-like-btn${isLiked ? ' liked' : ''}">${isLiked ? '♥' : '♡'}</button>`;
       card.onclick = () => card.classList.toggle('flipped');
       card.querySelector('.album-expand-btn').onclick = e => {
         e.stopPropagation();
         openAlbumDetail(dateLabel, title, dataUrl, summaryText, dateStr);
       };
+      card.querySelector('.album-like-btn').onclick = e => toggleLike(dateStr, e.currentTarget, e);
       grid.appendChild(card);
     }
   }
