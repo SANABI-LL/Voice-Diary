@@ -1087,6 +1087,10 @@
   let forceEndTimer = null;    // 12s 超时计时器
   let connectTimer = null;     // 连接超时
   let connectMsgTimer = null;  // 连接期间循环状态文字计时器
+  let preWs = null;      // 今日 tab 打开时提前建立的 WebSocket
+  let preReady = false;  // preWs 已收到 ready 信号
+  let preMsgBuf = [];    // ready 之后、用户点击前收到的消息缓冲
+  let retryWs = null;    // 20s 自动重试的第二个 WebSocket
   const VAD_THRESHOLD = 5000;  // 客户端 VAD RMS 阈值（外放回声可达 2000-3000，需高于此值）
   const VAD_FRAMES_REQUIRED = 6;  // 连续 6 帧≈48ms，要求更持续的说话才打断，避免回声/噪音误触
   let vadFrameCount = 0;       // 当前连续高能量帧计数
@@ -1358,7 +1362,7 @@
     }
     if (playbackCtx.state === 'suspended') await playbackCtx.resume();
 
-    // 35s 连接超时：若未收到 ready 则重置并提示重试
+    // 90s 最终超时（Gemini 模型偶尔需要很长时间初始化）
     connectTimer = setTimeout(() => {
       if (convActive && !captureCtx) {
         resetConvUI();
@@ -1366,28 +1370,167 @@
           `<span style="color:var(--red)">${t('connFail')}</span><br>` +
           `<span style="font-size:0.75rem;opacity:0.6">${t('connSlow')}</span>`;
       }
-    }, 35000);
+    }, 90000);
 
-    liveWs = new WebSocket(WS_URL + '?lang=' + currentLang);
-    liveWs.onopen = () => {
+    // 构建 start 消息
+    function buildStartMsg() {
       const todayStr = getActiveDateStr();
-      const todayTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const recentEntries = entries
-        .filter(e => !e.hidden && !e.loading)
-        .sort((a, b) => b.id - a.id)
-        .slice(0, 8)
-        .map(e => ({ date: e.date, time: e.time, text: e.text.substring(0, 200) }));
-      const todaySummary = summaries[todayStr] || null;
-      liveWs.send(JSON.stringify({
-        type: 'start',
-        lang: currentLang,
-        context: { today: todayStr, todayTime, timezone, recentEntries, todaySummary }
+      return JSON.stringify({
+        type: 'start', lang: currentLang,
+        context: {
+          today: todayStr,
+          todayTime: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          recentEntries: entries.filter(e => !e.hidden && !e.loading).sort((a,b) => b.id-a.id).slice(0,8).map(e => ({ date: e.date, time: e.time, text: e.text.substring(0,200) })),
+          todaySummary: summaries[getActiveDateStr()] || null,
+        }
+      });
+    }
+
+    function attachWsHandlers(ws) {
+      ws.onmessage = handleLiveMessage;
+      ws.onerror = () => { showToast(t('connFail')); resetConvUI(); };
+      ws.onclose = () => { if (convActive) resetConvUI(); };
+    }
+
+    if (preWs && (preWs.readyState === WebSocket.OPEN || preWs.readyState === WebSocket.CONNECTING)) {
+      // 取用提前建立的 WebSocket
+      liveWs = preWs; preWs = null;
+      attachWsHandlers(liveWs);
+      if (preReady) {
+        // Gemini session 已就绪！立即启动麦克风
+        clearTimeout(connectTimer); connectTimer = null;
+        clearInterval(connectMsgTimer); connectMsgTimer = null;
+        const buf = preMsgBuf.splice(0); preReady = false;
+        for (const ev of buf) handleLiveMessage(ev);
+        await setupMicAndPlayback();
+      } else {
+        preReady = false;
+        const buf = preMsgBuf.splice(0);
+        for (const ev of buf) handleLiveMessage(ev);
+        // ready 会通过 handleLiveMessage 到来
+      }
+    } else {
+      // 无预连接，直接新建 WebSocket
+      preWs = null; preReady = false;
+      liveWs = new WebSocket(WS_URL + '?lang=' + currentLang);
+      liveWs.onopen = () => liveWs.send(buildStartMsg());
+      attachWsHandlers(liveWs);
+    }
+
+    // 20s 自动重试：并行发起第二次连接，哪个先就绪用哪个
+    setTimeout(() => {
+      if (!convActive || captureCtx) return;  // 已连接或已结束
+      console.log('[Retry] 20s elapsed, starting second attempt');
+      retryWs = new WebSocket(WS_URL + '?lang=' + currentLang);
+      retryWs.onopen = () => { if (retryWs) retryWs.send(buildStartMsg()); };
+      retryWs.onmessage = (ev) => {
+        if (!convActive || captureCtx) { try { retryWs?.close(); } catch {} retryWs = null; return; }
+        let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+        if (msg.type === 'ready') {
+          console.log('[Retry] Second attempt won, switching');
+          try { liveWs?.close(); } catch {}
+          liveWs = retryWs; retryWs = null;
+          attachWsHandlers(liveWs);
+          handleLiveMessage(ev);
+        }
+      };
+      retryWs.onerror = () => { retryWs = null; };
+      retryWs.onclose = () => { retryWs = null; };
+    }, 20000);
+  }
+
+  // 今日 tab 打开时提前建立连接，用户点击麦克风时直接取用
+  function warmupConnection() {
+    if (convActive || preWs || !WS_URL) return;
+    preReady = false; preMsgBuf = [];
+    const ws = new WebSocket(WS_URL + '?lang=' + currentLang);
+    preWs = ws;
+    ws.onopen = () => {
+      if (preWs !== ws) return;
+      const todayStr = getActiveDateStr();
+      ws.send(JSON.stringify({
+        type: 'start', lang: currentLang,
+        context: {
+          today: todayStr,
+          todayTime: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          recentEntries: entries.filter(e => !e.hidden && !e.loading).sort((a,b) => b.id-a.id).slice(0,8).map(e => ({ date: e.date, time: e.time, text: e.text.substring(0,200) })),
+          todaySummary: summaries[todayStr] || null,
+        }
       }));
     };
-    liveWs.onmessage = handleLiveMessage;
-    liveWs.onerror = () => { showToast(t('connFail')); resetConvUI(); };
-    liveWs.onclose = () => { if (convActive) resetConvUI(); };
+    ws.onmessage = (ev) => {
+      if (preWs !== ws) return;
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'ready') { preReady = true; console.log('[Warmup] Gemini ready'); }
+        else if (msg.type === 'error' || msg.type === 'closed') { preWs = null; preReady = false; preMsgBuf = []; }
+        else preMsgBuf.push(ev);
+      } catch {}
+    };
+    ws.onerror = () => { if (preWs === ws) { preWs = null; preReady = false; } };
+    ws.onclose = () => { if (preWs === ws) { preWs = null; preReady = false; } };
+  }
+
+  // 麦克风采集 + 播放上下文启动（从 ready 处理器中抽出，可复用）
+  async function setupMicAndPlayback() {
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: { ideal: 1 }, echoCancellation: true, noiseSuppression: true }
+      });
+      captureCtx = new AudioContext();
+      if (captureCtx.state === 'suspended') await captureCtx.resume();
+      await captureCtx.audioWorklet.addModule('/worklet.js');
+
+      const source = captureCtx.createMediaStreamSource(micStream);
+      workletNode = new AudioWorkletNode(captureCtx, 'pcm-proc', {
+        processorOptions: { targetRate: 16000 }
+      });
+      workletNode.port.onmessage = (e) => {
+        if (liveWs?.readyState !== 1) return;
+        if (modelSpeaking && !userBargedIn) {
+          const samples = new Int16Array(e.data);
+          let sum = 0;
+          for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+          if (Math.sqrt(sum / samples.length) > VAD_THRESHOLD) {
+            if (++vadFrameCount >= VAD_FRAMES_REQUIRED) {
+              stopPlayback();
+              modelSpeaking = false;
+              userBargedIn = true;
+              vadFrameCount = 0;
+              if (liveWs?.readyState === 1)
+                liveWs.send(JSON.stringify({ type: 'interrupt' }));
+              clearTimeout(bargeInTimer);
+              bargeInTimer = setTimeout(() => { userBargedIn = false; bargeInTimer = null; }, 15000);
+            }
+          } else {
+            vadFrameCount = 0;
+          }
+          return;
+        }
+        if (!modelHasSpoken) return;
+        const bytes = new Uint8Array(e.data);
+        let str = ''; for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+        liveWs.send(JSON.stringify({ type: 'audio', data: btoa(str) }));
+        if (!audioSendStart && !modelSpeaking && modelHasSpoken && !userBargedIn) {
+          audioSendStart = Date.now();
+          forceEndTimer = setTimeout(() => {
+            if (liveWs?.readyState === 1) liveWs.send(JSON.stringify({ type: 'forceEndTurn' }));
+            audioSendStart = null; forceEndTimer = null;
+          }, 15000);
+        }
+      };
+      source.connect(workletNode);
+
+      if (playbackCtx?.state === 'suspended') await playbackCtx.resume();
+
+      document.getElementById('recordBtn').disabled = false;
+      document.getElementById('recordHint').textContent = t('greeting');
+    } catch (e) {
+      showToast(t('micFail'));
+      endConversation();
+    }
   }
 
   async function handleLiveMessage(event) {
@@ -1396,77 +1539,7 @@
     if (msg.type === 'ready') {
       clearTimeout(connectTimer); connectTimer = null;
       clearInterval(connectMsgTimer); connectMsgTimer = null;
-      // 开始麦克风采集（PCM 16kHz）
-      // iOS Safari: don't specify exact sampleRate in getUserMedia (causes OverconstrainedError)
-      // iOS Safari: AudioContext ignores sampleRate hint, use native rate + downsample in worklet
-      try {
-        micStream = await navigator.mediaDevices.getUserMedia({
-          audio: { channelCount: { ideal: 1 }, echoCancellation: true, noiseSuppression: true }
-        });
-        captureCtx = new AudioContext();
-        if (captureCtx.state === 'suspended') await captureCtx.resume();
-        // Use real file URL instead of Blob URL — iOS Safari can't load AudioWorklet from Blob
-        await captureCtx.audioWorklet.addModule('/worklet.js');
-
-        const source = captureCtx.createMediaStreamSource(micStream);
-        // Pass targetRate so worklet can downsample from native (e.g. 44100) to 16000
-        workletNode = new AudioWorkletNode(captureCtx, 'pcm-proc', {
-          processorOptions: { targetRate: 16000 }
-        });
-        workletNode.port.onmessage = (e) => {
-          if (liveWs?.readyState !== 1) return;
-          // 客户端 VAD：连续 N 帧超过阈值才打断（防回声/噪音误触）
-          if (modelSpeaking && !userBargedIn) {
-            // 客户端 VAD 检测用户说话（模型说话时不发送音频给 Gemini，避免回声干扰）
-            const samples = new Int16Array(e.data);
-            let sum = 0;
-            for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
-            if (Math.sqrt(sum / samples.length) > VAD_THRESHOLD) {
-              if (++vadFrameCount >= VAD_FRAMES_REQUIRED) {
-                stopPlayback();
-                modelSpeaking = false;
-                userBargedIn = true;
-                vadFrameCount = 0;
-                // 向服务器发送打断信号，让 Gemini 立即停止生成
-                if (liveWs?.readyState === 1)
-                  liveWs.send(JSON.stringify({ type: 'interrupt' }));
-                clearTimeout(bargeInTimer);
-                bargeInTimer = setTimeout(() => { userBargedIn = false; bargeInTimer = null; }, 15000);
-              }
-            } else {
-              vadFrameCount = 0;
-            }
-            return; // 模型说话期间屏蔽麦克风回声，不发送给 Gemini
-          }
-          // 问候语阶段（念念还未完成第一句话前）不发音频给 Gemini，防止启动竞态窗口误触 VAD
-          if (!modelHasSpoken) return;
-          const bytes = new Uint8Array(e.data);
-          let str = ''; for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
-          const b64 = btoa(str);
-          liveWs.send(JSON.stringify({ type: 'audio', data: b64 }));
-          // 首次发送时启动超时计时器（必须等念念完成首次回复后才启动，防止截断问候语）
-          if (!audioSendStart && !modelSpeaking && modelHasSpoken && !userBargedIn) {
-            audioSendStart = Date.now();
-            forceEndTimer = setTimeout(() => {
-              if (liveWs?.readyState === 1) {
-                liveWs.send(JSON.stringify({ type: 'forceEndTurn' }));
-              }
-              audioSendStart = null;
-              forceEndTimer = null;
-            }, 15000);
-          }
-        };
-        source.connect(workletNode);
-
-        // playbackCtx 已在 startConversation() 的用户手势内创建，这里只确保未被挂起
-        if (playbackCtx?.state === 'suspended') await playbackCtx.resume();
-
-        document.getElementById('recordBtn').disabled = false;
-        document.getElementById('recordHint').textContent = t('greeting');
-      } catch (e) {
-        showToast(t('micFail'));
-        endConversation();
-      }
+      await setupMicAndPlayback();
 
     } else if (msg.type === 'audio') {
       if (userBargedIn) return;  // 用户已打断，忽略剩余模型音频
@@ -1609,6 +1682,8 @@
     captureCtx?.close();
     playbackCtx?.close();
     liveWs?.close();
+    try { retryWs?.close(); } catch {}
+    retryWs = null;
     micStream = workletNode = captureCtx = playbackCtx = masterGain = liveWs = null;
     nextPlayTime = 0;
     document.getElementById('recordBtn').classList.remove('recording');
@@ -1921,6 +1996,7 @@ document.getElementById('speakWave').classList.remove('active');
       updateDateBanner();
       renderEntries();
       updateTodayViewForDate(getActiveDateStr());
+      warmupConnection();  // 提前建立 Gemini 连接
     }
     document.getElementById('todayView').style.display = view === 'today' ? '' : 'none';
     document.getElementById('albumView').style.display = view === 'album' ? '' : 'none';
