@@ -1498,6 +1498,7 @@
               stopPlayback();
               modelSpeaking = false;
               userBargedIn = true;
+              modelHasSpoken = true;  // 打断后立即解锁麦克风，让用户可以接着说话
               vadFrameCount = 0;
               if (liveWs?.readyState === 1)
                 liveWs.send(JSON.stringify({ type: 'interrupt' }));
@@ -1557,6 +1558,7 @@
         partialEls['user'] = null;
       }
       modelSpeaking = true;
+      modelHasSpoken = true;  // 第一个音频块到达即解锁麦克风，允许用户打断
       clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
 
     } else if (msg.type === 'partial') {
