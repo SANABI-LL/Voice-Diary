@@ -241,6 +241,7 @@ wss.on("connection", (clientWs, req) => {
   let transcript = [];
   let inputBuf = "";
   let outputBuf = "";
+  let turnHasAudio = false;  // 本轮是否发送过音频（用于确保 turn role='model' 一定发出）
 
   const urlParams = new URL(req.url, 'http://localhost');
   const prewarmLang = urlParams.searchParams.get('lang') || 'zh';
@@ -268,6 +269,7 @@ wss.on("connection", (clientWs, req) => {
     for (const part of parts) {
       if (part.inlineData?.mimeType?.startsWith("audio/")) {
         hasAudio = true;
+        turnHasAudio = true;
         send({
           type: "audio",
           data: part.inlineData.data,
@@ -298,11 +300,13 @@ wss.on("connection", (clientWs, req) => {
       send({ type: "partial", role: "model", text: outputBuf });
     }
     if (m.serverContent?.turnComplete) {
-      if (outputBuf) {
+      // 即使 outputBuf 为空（音频回复无转录），只要本轮有过音频就通知客户端
+      if (outputBuf || turnHasAudio) {
         transcript.push({ role: "model", text: outputBuf });
         send({ type: "turn", role: "model", text: outputBuf });
         outputBuf = "";
       }
+      turnHasAudio = false;
       inputBuf = "";
     }
 

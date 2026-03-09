@@ -1101,9 +1101,10 @@
   let lastModelBubble = null;  // 上一个模型气泡元素，用于合并 Gemini 中途 turnComplete 拆开的气泡
   let lastModelTextPrefix = ''; // 上一段模型文本（追加到新段落前）
   let bargeInTimer = null;     // 防止 userBargedIn 永久卡住的安全超时
-  let userTurnActive = false;  // activityStart 已发送，用户轮次进行中
-  let waitingForModel = false; // activityEnd 已发送，等待模型响应（此期间不转发音频）
-  let convModelPCM = [];       // 收集本次对话念念的全部 PCM 数据（Int16Array[]）
+  let userTurnActive = false;   // activityStart 已发送，用户轮次进行中
+  let waitingForModel = false;  // activityEnd 已发送，等待模型响应（此期间不转发音频）
+  let userSpokenInTurn = false; // 当前轮次用户是否已发出过语音（防止静音立即触发 activityEnd）
+  let convModelPCM = [];        // 收集本次对话念念的全部 PCM 数据（Int16Array[]）
 
   // WebSocket URL 自动适配（本地 ws:// 生产 wss://）
   const WS_URL = (() => {
@@ -1504,19 +1505,21 @@
               modelSpeaking = false;
               userBargedIn = true;
               userTurnActive = true;
+              userSpokenInTurn = true;  // 打断本身即视为用户已开口
               waitingForModel = false;
               modelHasSpoken = true;
               vadFrameCount = 0;
               liveWs.send(JSON.stringify({ type: 'interrupt' }));  // activityStart
               clearTimeout(bargeInTimer);
               bargeInTimer = setTimeout(() => { userBargedIn = false; bargeInTimer = null; }, 2000);
-              // 打断后启动静音计时，确保 activityEnd 最终一定发出
+              // 打断后启动安全超时，防止 activityEnd 永久未发
+              clearTimeout(forceEndTimer);
               audioSendStart = Date.now();
               forceEndTimer = setTimeout(() => {
                 if (liveWs?.readyState === 1) liveWs.send(JSON.stringify({ type: 'forceEndTurn' }));
-                userTurnActive = false; waitingForModel = true;
+                userTurnActive = false; waitingForModel = true; userSpokenInTurn = false;
                 audioSendStart = null; forceEndTimer = null;
-              }, 8000);
+              }, 10000);
             }
           } else {
             vadFrameCount = 0;
@@ -1532,14 +1535,16 @@
         let str = ''; for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
         liveWs.send(JSON.stringify({ type: 'audio', data: btoa(str) }));
 
-        // 基于静音的轮次结束检测：说话后静音 3s → activityEnd
+        // 只在用户真正开口后才启动静音计时（防止刚 activityStart 就因为静音立即 activityEnd）
         if (isSpeech) {
+          userSpokenInTurn = true;
           clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
-        } else if (!audioSendStart) {
+        } else if (userSpokenInTurn && !audioSendStart) {
+          // 用户说过话后的静音 3s → activityEnd
           audioSendStart = Date.now();
           forceEndTimer = setTimeout(() => {
             if (liveWs?.readyState === 1) liveWs.send(JSON.stringify({ type: 'forceEndTurn' }));
-            userTurnActive = false; waitingForModel = true;
+            userTurnActive = false; waitingForModel = true; userSpokenInTurn = false;
             audioSendStart = null; forceEndTimer = null;
           }, 3000);
         }
@@ -1565,7 +1570,8 @@
       await setupMicAndPlayback();
 
     } else if (msg.type === 'audio') {
-      if (userBargedIn) return;  // 用户已打断，忽略剩余模型音频
+      // 用户轮次进行中（非等待模型响应阶段）时，忽略模型晚到的音频，防止 modelSpeaking 被误置 true
+      if (userBargedIn || (userTurnActive && !waitingForModel)) return;
       vadFrameCount = 0;  // 模型开始新音频，重置帧计数器
       // 播放 Gemini 语音（PCM 24kHz）
       playPCMChunk(msg.data, 24000);
@@ -1580,7 +1586,8 @@
         partialEls['user'] = null;
       }
       modelSpeaking = true;
-      modelHasSpoken = true;  // 第一个音频块到达即解锁麦克风，允许用户打断
+      waitingForModel = false;  // 模型已开始回应，解除等待状态
+      modelHasSpoken = true;
       clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
 
     } else if (msg.type === 'partial') {
@@ -1609,6 +1616,7 @@
         userBargedIn = false;
         waitingForModel = false;
         userTurnActive = false;
+        userSpokenInTurn = false;
         clearTimeout(bargeInTimer); bargeInTimer = null;
         clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
         modelHasSpoken = true;
@@ -1704,6 +1712,7 @@
     modelHasSpoken = false;
     userTurnActive = false;
     waitingForModel = false;
+    userSpokenInTurn = false;
     vadFrameCount = 0;
     clearTimeout(connectTimer); connectTimer = null;
     clearInterval(connectMsgTimer); connectMsgTimer = null;
