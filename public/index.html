@@ -219,10 +219,10 @@
 
   /* ===== Album 相册 ===== */
   .album-grid {
-    display:grid; grid-template-columns:repeat(2,1fr); gap:10px;
+    display:grid; grid-template-columns:repeat(1,1fr); gap:10px;
     padding:12px 14px 80px; }
   @media (min-width:480px) {
-    .album-grid { grid-template-columns:repeat(3,1fr); gap:12px; } }
+    .album-grid { grid-template-columns:repeat(2,1fr); gap:12px; } }
   .album-card { position:relative; aspect-ratio:1; cursor:pointer;
     border-radius:16px; overflow:hidden;
     box-shadow:0 2px 12px rgba(0,0,0,0.25);
@@ -847,6 +847,11 @@
     <div id="calDayEntries"></div>
   </div>
   <button class="export-btn" onclick="exportToWord()" data-i18n="exportBtn">↓ 导出全部日记为 Word</button>
+  <div style="margin-top:6px;display:flex;gap:6px;">
+    <button class="export-btn" onclick="exportAllData()" style="flex:1" data-i18n="exportDataBtn">↓ 导出全部数据（Demo）</button>
+    <button class="export-btn" onclick="document.getElementById('importDataFile').click()" style="flex:1" data-i18n="importDataBtn">↑ 导入数据（Demo）</button>
+    <input type="file" id="importDataFile" accept=".json" style="display:none" onchange="importAllData(this)">
+  </div>
 </div>
 
 </div><!-- /page-content -->
@@ -883,6 +888,8 @@
       summaryBtn: '✦ 生成今日总结', summaryLabel: '✦ 今日日记',
       copyBtn: '复制全文', illusBtn: '✦ 生成插图',
       exportBtn: '↓ 导出全部日记为 Word',
+      exportDataBtn: '↓ 导出全部数据（Demo）', importDataBtn: '↑ 导入数据（Demo）',
+      exportDataOk: '已导出，将文件发到手机后导入即可', importDataOk: '导入成功，即将刷新页面', importDataFail: '导入失败，请确认文件格式正确',
       weekdays: ['日','一','二','三','四','五','六'],
       connecting: '正在连接服务器...', connecting2: '正在唤醒念念...', connecting3: '念念快准备好了...', greeting: '念念正在问候...',
       convActive: '正在对话，说完会自动回应',
@@ -924,6 +931,8 @@
       summaryBtn: '✦ Generate Summary', summaryLabel: '✦ Today\'s Diary',
       copyBtn: 'Copy', illusBtn: '✦ Illustrate',
       exportBtn: '↓ Export All to Word',
+      exportDataBtn: '↓ Export All Data (Demo)', importDataBtn: '↑ Import Data (Demo)',
+      exportDataOk: 'Exported. Send the file to your phone and import.', importDataOk: 'Import successful, reloading…', importDataFail: 'Import failed. Please check the file format.',
       weekdays: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
       connecting: 'Connecting to server...', connecting2: 'Waking up Niannian...', connecting3: 'Almost ready...', greeting: 'Niannian is greeting you...',
       convActive: 'Listening... responds when you pause',
@@ -2072,6 +2081,7 @@ document.getElementById('speakWave').classList.remove('active');
       const displayText = translations[cacheKey] || summaryText;
       const isLiked = !!likes[dateStr];
 
+      const safeId = dateStr.replace(/[^a-z0-9]/gi, '');
       const card = document.createElement('div');
       card.className = 'album-card';
       card.innerHTML = `
@@ -2080,12 +2090,12 @@ document.getElementById('speakWave').classList.remove('active');
             <img src="${dataUrl}" alt="${dateStr}">
             <div class="album-card-overlay">
               <div class="album-card-overlay-date">${dateLabel}</div>
-              ${title ? `<div class="album-card-overlay-title">${title}</div>` : ''}
+              ${title ? `<div id="album-ot-${safeId}" class="album-card-overlay-title">${title}</div>` : ''}
             </div>
           </div>
           <div class="album-card-back">
             <div class="album-card-date">${dateLabel}</div>
-            ${title ? `<div class="album-card-title">${title}</div>` : ''}
+            ${title ? `<div id="album-bt-${safeId}" class="album-card-title">${title}</div>` : ''}
             <div class="album-card-summary clamped">${displayText}</div>
             <button class="album-expand-btn">${t('expandBtn')}</button>
           </div>
@@ -2098,6 +2108,16 @@ document.getElementById('speakWave').classList.remove('active');
       };
       card.querySelector('.album-like-btn').onclick = e => toggleLike(dateStr, e.currentTarget, e);
       grid.appendChild(card);
+      // 翻译标题（切换到英文时）
+      if (title && currentLang === 'en') {
+        getTranslated('title_' + dateStr, title, 'en').then(tx => {
+          if (tx === title) return;
+          const ot = document.getElementById('album-ot-' + safeId);
+          const bt = document.getElementById('album-bt-' + safeId);
+          if (ot) ot.textContent = tx;
+          if (bt) bt.textContent = tx;
+        });
+      }
     }
   }
 
@@ -2348,6 +2368,52 @@ document.getElementById('speakWave').classList.remove('active');
       URL.revokeObjectURL(a.href);
     } catch(e) {
       showToast(t('exportFail'));
+    }
+  }
+
+  async function exportAllData() {
+    const illus = await getAllIllus();
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      localStorage: {
+        vd_entries:      localStorage.getItem('vd_entries')      || '[]',
+        vd_summaries:    localStorage.getItem('vd_summaries')    || '{}',
+        vd_titles:       localStorage.getItem('vd_titles')       || '{}',
+        vd_translations: localStorage.getItem('vd_translations') || '{}',
+        vd_likes:        localStorage.getItem('vd_likes')        || '{}',
+      },
+      illus,
+    };
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `voice-diary-backup-${getTodayStr()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast(t('exportDataOk'));
+  }
+
+  async function importAllData(input) {
+    const file = input.files[0];
+    if (!file) return;
+    input.value = '';
+    try {
+      const payload = JSON.parse(await file.text());
+      if (!payload.version || !payload.localStorage) throw new Error('invalid');
+      for (const [key, val] of Object.entries(payload.localStorage)) {
+        localStorage.setItem(key, val);
+      }
+      if (Array.isArray(payload.illus)) {
+        for (const { dateStr, dataUrl } of payload.illus) {
+          await saveIllus(dateStr, dataUrl);
+        }
+      }
+      showToast(t('importDataOk'));
+      setTimeout(() => location.reload(), 1200);
+    } catch (e) {
+      console.error(e);
+      showToast(t('importDataFail'));
     }
   }
 
