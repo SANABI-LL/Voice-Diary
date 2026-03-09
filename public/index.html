@@ -1101,10 +1101,7 @@
   let lastModelBubble = null;  // 上一个模型气泡元素，用于合并 Gemini 中途 turnComplete 拆开的气泡
   let lastModelTextPrefix = ''; // 上一段模型文本（追加到新段落前）
   let bargeInTimer = null;     // 防止 userBargedIn 永久卡住的安全超时
-  let userTurnActive = false;   // activityStart 已发送，用户轮次进行中
-  let waitingForModel = false;  // activityEnd 已发送，等待模型响应（此期间不转发音频）
-  let userSpokenInTurn = false; // 当前轮次用户是否已发出过语音（防止静音立即触发 activityEnd）
-  let convModelPCM = [];        // 收集本次对话念念的全部 PCM 数据（Int16Array[]）
+  let convModelPCM = [];       // 收集本次对话念念的全部 PCM 数据（Int16Array[]）
 
   // WebSocket URL 自动适配（本地 ws:// 生产 wss://）
   const WS_URL = (() => {
@@ -1492,62 +1489,32 @@
       });
       workletNode.port.onmessage = (e) => {
         if (liveWs?.readyState !== 1) return;
-        const samples = new Int16Array(e.data);
-        let sum = 0;
-        for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
-        const isSpeech = Math.sqrt(sum / samples.length) > VAD_THRESHOLD;
+        if (!modelHasSpoken) return;  // 等待念念先开口
 
-        // 模型说话时检测用户是否打断
+        // 客户端 VAD：仅用于在模型说话时检测打断，本地停止播放
         if (modelSpeaking && !userBargedIn) {
-          if (isSpeech) {
+          const samples = new Int16Array(e.data);
+          let sum = 0;
+          for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+          if (Math.sqrt(sum / samples.length) > VAD_THRESHOLD) {
             if (++vadFrameCount >= VAD_FRAMES_REQUIRED) {
-              stopPlayback();
+              stopPlayback();           // 本地停止播放
               modelSpeaking = false;
               userBargedIn = true;
-              userTurnActive = true;
-              userSpokenInTurn = true;  // 打断本身即视为用户已开口
-              waitingForModel = false;
-              modelHasSpoken = true;
               vadFrameCount = 0;
-              liveWs.send(JSON.stringify({ type: 'interrupt' }));  // activityStart
               clearTimeout(bargeInTimer);
-              bargeInTimer = setTimeout(() => { userBargedIn = false; bargeInTimer = null; }, 2000);
-              // 打断后启动安全超时，防止 activityEnd 永久未发
-              clearTimeout(forceEndTimer);
-              audioSendStart = Date.now();
-              forceEndTimer = setTimeout(() => {
-                if (liveWs?.readyState === 1) liveWs.send(JSON.stringify({ type: 'forceEndTurn' }));
-                userTurnActive = false; waitingForModel = true; userSpokenInTurn = false;
-                audioSendStart = null; forceEndTimer = null;
-              }, 10000);
+              bargeInTimer = setTimeout(() => { userBargedIn = false; bargeInTimer = null; }, 3000);
             }
           } else {
             vadFrameCount = 0;
           }
-          return;
+          // 打断时仍然转发音频，让 Gemini 自动 VAD 检测到用户说话
         }
 
-        // 未到用户轮次则不处理音频
-        if (!modelHasSpoken || modelSpeaking || waitingForModel || !userTurnActive) return;
-
-        // 转发用户音频给 Gemini
+        // 始终转发用户音频——Gemini 自动 VAD 处理说话检测和打断
         const bytes = new Uint8Array(e.data);
         let str = ''; for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
         liveWs.send(JSON.stringify({ type: 'audio', data: btoa(str) }));
-
-        // 只在用户真正开口后才启动静音计时（防止刚 activityStart 就因为静音立即 activityEnd）
-        if (isSpeech) {
-          userSpokenInTurn = true;
-          clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
-        } else if (userSpokenInTurn && !audioSendStart) {
-          // 用户说过话后的静音 3s → activityEnd
-          audioSendStart = Date.now();
-          forceEndTimer = setTimeout(() => {
-            if (liveWs?.readyState === 1) liveWs.send(JSON.stringify({ type: 'forceEndTurn' }));
-            userTurnActive = false; waitingForModel = true; userSpokenInTurn = false;
-            audioSendStart = null; forceEndTimer = null;
-          }, 3000);
-        }
       };
       source.connect(workletNode);
 
@@ -1570,8 +1537,7 @@
       await setupMicAndPlayback();
 
     } else if (msg.type === 'audio') {
-      // 用户轮次进行中（非等待模型响应阶段）时，忽略模型晚到的音频，防止 modelSpeaking 被误置 true
-      if (userBargedIn || (userTurnActive && !waitingForModel)) return;
+      if (userBargedIn) return;  // 用户已打断，忽略剩余模型音频
       vadFrameCount = 0;  // 模型开始新音频，重置帧计数器
       // 播放 Gemini 语音（PCM 24kHz）
       playPCMChunk(msg.data, 24000);
@@ -1586,7 +1552,6 @@
         partialEls['user'] = null;
       }
       modelSpeaking = true;
-      waitingForModel = false;  // 模型已开始回应，解除等待状态
       modelHasSpoken = true;
       clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
 
@@ -1613,26 +1578,12 @@
       }
       if (msg.role === 'model') {
         modelSpeaking = false;
-        waitingForModel = false;
+        userBargedIn = false;
+        clearTimeout(bargeInTimer); bargeInTimer = null;
         modelHasSpoken = true;
         document.getElementById('speakWave').classList.remove('active');
         const hint = document.getElementById('recordHint');
         if (hint.textContent === t('greeting')) hint.textContent = t('convActive');
-
-        if (userBargedIn) {
-          // 打断进行中：activityStart 已发过，不重复发；保持 userTurnActive/userSpokenInTurn 不变
-          userBargedIn = false;  // 解除 barge-in 标记，但保留 userTurnActive
-        } else {
-          // 正常轮次结束：重置并开启新用户轮次
-          userTurnActive = false;
-          userSpokenInTurn = false;
-          clearTimeout(bargeInTimer); bargeInTimer = null;
-          clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
-          if (liveWs?.readyState === 1) {
-            liveWs.send(JSON.stringify({ type: 'speechStart' }));
-            userTurnActive = true;
-          }
-        }
       }
 
     } else if (msg.type === 'save_note') {
@@ -1712,9 +1663,6 @@
     modelSpeaking = false;
     userBargedIn = false;
     modelHasSpoken = false;
-    userTurnActive = false;
-    waitingForModel = false;
-    userSpokenInTurn = false;
     vadFrameCount = 0;
     clearTimeout(connectTimer); connectTimer = null;
     clearInterval(connectMsgTimer); connectMsgTimer = null;

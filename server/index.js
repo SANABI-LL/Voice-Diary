@@ -154,7 +154,9 @@ function buildLiveConfig(sysPrompt) {
     outputAudioTranscription: {},
     realtimeInputConfig: {
       automaticActivityDetection: {
-        disabled: true,
+        disabled: false,
+        endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
+        silenceDurationMs: 1200,
       },
     },
     systemInstruction: { parts: [{ text: sysPrompt }] },
@@ -443,24 +445,10 @@ wss.on("connection", (clientWs, req) => {
         console.error("[Live] Send audio error:", e);
       }
 
-    } else if (msg.type === "speechStart" && session) {
-      try {
-        session.sendRealtimeInput({ activityStart: {} });
-        console.log('[Live] activityStart sent (user turn start)');
-      } catch(e) { console.error('[Live] speechStart error:', e); }
-
-    } else if (msg.type === "interrupt" && session) {
-      try {
-        session.sendRealtimeInput({ activityStart: {} });
-        console.log('[Live] activityStart sent (user barge-in)');
-      } catch(e) { console.error('[Live] Interrupt error:', e); }
-
-    } else if (msg.type === "forceEndTurn" && session) {
-      try {
-        session.sendRealtimeInput({ activityEnd: {} });
-        console.log(`[Live] activityEnd sent (force end), total client audio frames: ${clientAudioFrames}`);
-        clientAudioFrames = 0;
-      } catch(e) { console.error('[Live] Force end error:', e); }
+    } else if (msg.type === "interrupt") {
+      // 自动 VAD 模式：Gemini 自行检测用户说话，无需 activityStart 信号
+      // 客户端已在本地 stopPlayback()，此处无需额外操作
+      console.log('[Live] barge-in (auto VAD, no signal needed)');
 
     } else if (msg.type === "end") {
       try {
