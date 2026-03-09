@@ -1503,7 +1503,7 @@
               if (liveWs?.readyState === 1)
                 liveWs.send(JSON.stringify({ type: 'interrupt' }));
               clearTimeout(bargeInTimer);
-              bargeInTimer = setTimeout(() => { userBargedIn = false; bargeInTimer = null; }, 15000);
+              bargeInTimer = setTimeout(() => { userBargedIn = false; bargeInTimer = null; }, 2000);
             }
           } else {
             vadFrameCount = 0;

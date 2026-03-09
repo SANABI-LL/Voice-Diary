@@ -155,7 +155,7 @@ function buildLiveConfig(sysPrompt) {
     realtimeInputConfig: {
       automaticActivityDetection: {
         disabled: false,
-        startOfSpeechSensitivity: "START_SENSITIVITY_LOW",
+        startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
         endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
         prefixPaddingMs: 200,
         silenceDurationMs: 800,
@@ -435,20 +435,14 @@ wss.on("connection", (clientWs, req) => {
 
     } else if (msg.type === "interrupt" && session) {
       try {
-        session.sendClientContent({
-          turns: [{ role: 'user', parts: [{ text: '' }] }],
-          turnComplete: true
-        });
-        console.log('[Live] Interrupt sent (user barge-in)');
+        session.sendRealtimeInput({ activityStart: {} });
+        console.log('[Live] activityStart sent (user barge-in)');
       } catch(e) { console.error('[Live] Interrupt error:', e); }
 
     } else if (msg.type === "forceEndTurn" && session) {
       try {
-        session.sendClientContent({
-          turns: [{ role: 'user', parts: [{ text: '' }] }],
-          turnComplete: true
-        });
-        console.log('[Live] Force end turn sent');
+        session.sendRealtimeInput({ activityEnd: {} });
+        console.log('[Live] activityEnd sent (force end)');
       } catch(e) { console.error('[Live] Force end error:', e); }
 
     } else if (msg.type === "end") {
