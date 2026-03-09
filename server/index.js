@@ -269,6 +269,7 @@ wss.on("connection", (clientWs, req) => {
     for (const part of parts) {
       if (part.inlineData?.mimeType?.startsWith("audio/")) {
         hasAudio = true;
+        if (!turnHasAudio) console.log('[Live] first audio chunk in turn');
         turnHasAudio = true;
         send({
           type: "audio",
@@ -300,11 +301,15 @@ wss.on("connection", (clientWs, req) => {
       send({ type: "partial", role: "model", text: outputBuf });
     }
     if (m.serverContent?.turnComplete) {
+      console.log(`[Live] turnComplete: outputBuf="${outputBuf.slice(0,30)}" turnHasAudio=${turnHasAudio}`);
       // 即使 outputBuf 为空（音频回复无转录），只要本轮有过音频就通知客户端
       if (outputBuf || turnHasAudio) {
         transcript.push({ role: "model", text: outputBuf });
         send({ type: "turn", role: "model", text: outputBuf });
+        console.log('[Live] sent turn/model to client');
         outputBuf = "";
+      } else {
+        console.log('[Live] turnComplete skipped (no audio, no text)');
       }
       turnHasAudio = false;
       inputBuf = "";
