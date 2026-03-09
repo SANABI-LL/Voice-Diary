@@ -242,6 +242,7 @@ wss.on("connection", (clientWs, req) => {
   let inputBuf = "";
   let outputBuf = "";
   let turnHasAudio = false;  // 本轮是否发送过音频（用于确保 turn role='model' 一定发出）
+  let clientAudioFrames = 0; // 收到客户端音频帧计数（用于诊断）
 
   const urlParams = new URL(req.url, 'http://localhost');
   const prewarmLang = urlParams.searchParams.get('lang') || 'zh';
@@ -431,6 +432,10 @@ wss.on("connection", (clientWs, req) => {
 
     } else if (msg.type === "audio" && session) {
       try {
+        clientAudioFrames++;
+        if (clientAudioFrames === 1 || clientAudioFrames % 100 === 0) {
+          console.log(`[Live] client audio frame ${clientAudioFrames}`);
+        }
         session.sendRealtimeInput({
           audio: { data: msg.data, mimeType: "audio/pcm;rate=16000" },
         });
@@ -453,7 +458,8 @@ wss.on("connection", (clientWs, req) => {
     } else if (msg.type === "forceEndTurn" && session) {
       try {
         session.sendRealtimeInput({ activityEnd: {} });
-        console.log('[Live] activityEnd sent (force end)');
+        console.log(`[Live] activityEnd sent (force end), total client audio frames: ${clientAudioFrames}`);
+        clientAudioFrames = 0;
       } catch(e) { console.error('[Live] Force end error:', e); }
 
     } else if (msg.type === "end") {

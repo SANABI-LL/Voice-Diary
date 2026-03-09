@@ -1613,23 +1613,25 @@
       }
       if (msg.role === 'model') {
         modelSpeaking = false;
-        userBargedIn = false;
         waitingForModel = false;
-        userTurnActive = false;
-        userSpokenInTurn = false;
-        clearTimeout(bargeInTimer); bargeInTimer = null;
-        clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
         modelHasSpoken = true;
         document.getElementById('speakWave').classList.remove('active');
-        // 念念说完第一句后，提示用户可以开口
         const hint = document.getElementById('recordHint');
-        if (hint.textContent === t('greeting')) {
-          hint.textContent = t('convActive');
-        }
-        // 通知 Gemini 用户轮次开始（activityStart）
-        if (liveWs?.readyState === 1) {
-          liveWs.send(JSON.stringify({ type: 'speechStart' }));
-          userTurnActive = true;
+        if (hint.textContent === t('greeting')) hint.textContent = t('convActive');
+
+        if (userBargedIn) {
+          // 打断进行中：activityStart 已发过，不重复发；保持 userTurnActive/userSpokenInTurn 不变
+          userBargedIn = false;  // 解除 barge-in 标记，但保留 userTurnActive
+        } else {
+          // 正常轮次结束：重置并开启新用户轮次
+          userTurnActive = false;
+          userSpokenInTurn = false;
+          clearTimeout(bargeInTimer); bargeInTimer = null;
+          clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
+          if (liveWs?.readyState === 1) {
+            liveWs.send(JSON.stringify({ type: 'speechStart' }));
+            userTurnActive = true;
+          }
         }
       }
 
