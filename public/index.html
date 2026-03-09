@@ -1101,6 +1101,8 @@
   let lastModelBubble = null;  // 上一个模型气泡元素，用于合并 Gemini 中途 turnComplete 拆开的气泡
   let lastModelTextPrefix = ''; // 上一段模型文本（追加到新段落前）
   let bargeInTimer = null;     // 防止 userBargedIn 永久卡住的安全超时
+  let userTurnActive = false;  // activityStart 已发送，用户轮次进行中
+  let waitingForModel = false; // activityEnd 已发送，等待模型响应（此期间不转发音频）
   let convModelPCM = [];       // 收集本次对话念念的全部 PCM 数据（Int16Array[]）
 
   // WebSocket URL 自动适配（本地 ws:// 生产 wss://）
@@ -1489,37 +1491,57 @@
       });
       workletNode.port.onmessage = (e) => {
         if (liveWs?.readyState !== 1) return;
+        const samples = new Int16Array(e.data);
+        let sum = 0;
+        for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+        const isSpeech = Math.sqrt(sum / samples.length) > VAD_THRESHOLD;
+
+        // 模型说话时检测用户是否打断
         if (modelSpeaking && !userBargedIn) {
-          const samples = new Int16Array(e.data);
-          let sum = 0;
-          for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
-          if (Math.sqrt(sum / samples.length) > VAD_THRESHOLD) {
+          if (isSpeech) {
             if (++vadFrameCount >= VAD_FRAMES_REQUIRED) {
               stopPlayback();
               modelSpeaking = false;
               userBargedIn = true;
-              modelHasSpoken = true;  // 打断后立即解锁麦克风，让用户可以接着说话
+              userTurnActive = true;
+              waitingForModel = false;
+              modelHasSpoken = true;
               vadFrameCount = 0;
-              if (liveWs?.readyState === 1)
-                liveWs.send(JSON.stringify({ type: 'interrupt' }));
+              liveWs.send(JSON.stringify({ type: 'interrupt' }));  // activityStart
               clearTimeout(bargeInTimer);
               bargeInTimer = setTimeout(() => { userBargedIn = false; bargeInTimer = null; }, 2000);
+              // 打断后启动静音计时，确保 activityEnd 最终一定发出
+              audioSendStart = Date.now();
+              forceEndTimer = setTimeout(() => {
+                if (liveWs?.readyState === 1) liveWs.send(JSON.stringify({ type: 'forceEndTurn' }));
+                userTurnActive = false; waitingForModel = true;
+                audioSendStart = null; forceEndTimer = null;
+              }, 8000);
             }
           } else {
             vadFrameCount = 0;
           }
           return;
         }
-        if (!modelHasSpoken) return;
+
+        // 未到用户轮次则不处理音频
+        if (!modelHasSpoken || modelSpeaking || waitingForModel || !userTurnActive) return;
+
+        // 转发用户音频给 Gemini
         const bytes = new Uint8Array(e.data);
         let str = ''; for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
         liveWs.send(JSON.stringify({ type: 'audio', data: btoa(str) }));
-        if (!audioSendStart && !modelSpeaking && modelHasSpoken && !userBargedIn) {
+
+        // 基于静音的轮次结束检测：说话后静音 3s → activityEnd
+        if (isSpeech) {
+          clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
+        } else if (!audioSendStart) {
           audioSendStart = Date.now();
           forceEndTimer = setTimeout(() => {
             if (liveWs?.readyState === 1) liveWs.send(JSON.stringify({ type: 'forceEndTurn' }));
+            userTurnActive = false; waitingForModel = true;
             audioSendStart = null; forceEndTimer = null;
-          }, 15000);
+          }, 3000);
         }
       };
       source.connect(workletNode);
@@ -1585,13 +1607,21 @@
       if (msg.role === 'model') {
         modelSpeaking = false;
         userBargedIn = false;
+        waitingForModel = false;
+        userTurnActive = false;
         clearTimeout(bargeInTimer); bargeInTimer = null;
-        modelHasSpoken = true;  // 念念完成首次回复，此后允许启动 forceEnd 计时器
+        clearTimeout(forceEndTimer); forceEndTimer = null; audioSendStart = null;
+        modelHasSpoken = true;
         document.getElementById('speakWave').classList.remove('active');
         // 念念说完第一句后，提示用户可以开口
         const hint = document.getElementById('recordHint');
         if (hint.textContent === t('greeting')) {
           hint.textContent = t('convActive');
+        }
+        // 通知 Gemini 用户轮次开始（activityStart）
+        if (liveWs?.readyState === 1) {
+          liveWs.send(JSON.stringify({ type: 'speechStart' }));
+          userTurnActive = true;
         }
       }
 
@@ -1672,6 +1702,8 @@
     modelSpeaking = false;
     userBargedIn = false;
     modelHasSpoken = false;
+    userTurnActive = false;
+    waitingForModel = false;
     vadFrameCount = 0;
     clearTimeout(connectTimer); connectTimer = null;
     clearInterval(connectMsgTimer); connectMsgTimer = null;

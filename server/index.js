@@ -154,11 +154,7 @@ function buildLiveConfig(sysPrompt) {
     outputAudioTranscription: {},
     realtimeInputConfig: {
       automaticActivityDetection: {
-        disabled: false,
-        startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
-        endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
-        prefixPaddingMs: 200,
-        silenceDurationMs: 800,
+        disabled: true,
       },
     },
     systemInstruction: { parts: [{ text: sysPrompt }] },
@@ -432,6 +428,12 @@ wss.on("connection", (clientWs, req) => {
       } catch (e) {
         console.error("[Live] Send audio error:", e);
       }
+
+    } else if (msg.type === "speechStart" && session) {
+      try {
+        session.sendRealtimeInput({ activityStart: {} });
+        console.log('[Live] activityStart sent (user turn start)');
+      } catch(e) { console.error('[Live] speechStart error:', e); }
 
     } else if (msg.type === "interrupt" && session) {
       try {
