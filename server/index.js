@@ -121,7 +121,6 @@ function buildSystemPrompt(ctx, lang) {
 function buildContextInjection(ctx, lang) {
   const isEn = lang === 'en';
   let text = '';
-  // 时间/时区（最重要，agent 必须知道当前时刻）
   const tzInfo = ctx.timezone ? (isEn ? ` (${ctx.timezone})` : `（${ctx.timezone}）`) : '';
   text += isEn
     ? `[USER'S LOCAL TIME: ${ctx.today || 'today'} ${ctx.todayTime || ''}${tzInfo}. Use ONLY this time, not your training data.]\n`
@@ -142,7 +141,7 @@ function buildContextInjection(ctx, lang) {
   return text;
 }
 
-// 构建 ai.live.connect 所需的 config（不含 systemInstruction，单独传入）
+// 构建 ai.live.connect 所需的 config
 function buildLiveConfig(sysPrompt) {
   return {
     responseModalities: [Modality.AUDIO],
@@ -200,14 +199,53 @@ function buildLiveConfig(sysPrompt) {
   };
 }
 
+// ===== 全局 Session 池 =====
+// 服务器启动时预热，确保每个语言始终有一个就绪的 session 等候
+// 用户连接时立即取用（无需等待），取走后立刻开始补充新预热
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const pool = {};  // { zh: Promise | null, en: Promise | null }
+
+function fillPool(lang) {
+  const basePrompt = lang === 'en' ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_ZH;
+
+  // 可变回调：预热期间无 client 时缓冲消息；client 到来后实时转发
+  const handlers = { onmsg: null, onerr: null, onclose: null };
+  const queue = [];
+
+  const promise = ai.live.connect({
+    model: "gemini-2.5-flash-native-audio-latest",
+    config: buildLiveConfig(basePrompt),
+    callbacks: {
+      onopen:    () => console.log(`[Pool] ${lang} session ready`),
+      onmessage: (m) => handlers.onmsg   ? handlers.onmsg(m)   : queue.push(m),
+      onerror:   (e) => handlers.onerr   ? handlers.onerr(e)   : (console.error(`[Pool] ${lang} error:`, e), pool[lang] = null),
+      onclose:   (e) => handlers.onclose ? handlers.onclose(e) : (console.log(`[Pool] ${lang} closed early`), pool[lang] = null),
+    },
+  }).then(s => ({ session: s, handlers, queue }))
+    .catch(e => {
+      console.error(`[Pool] ${lang} connect failed:`, e);
+      pool[lang] = null;
+      return null;
+    });
+
+  pool[lang] = promise;
+  return promise;
+}
+
+// 服务器启动时立即预热中英文 session
+fillPool('zh');
+fillPool('en');
+
+// ===== WebSocket 连接处理 =====
+
 wss.on("connection", (clientWs, req) => {
   let session = null;
-  let ctx = {};          // 存储前端传来的上下文，供工具调用使用
-  let transcript = [];   // [{role: 'user'|'model', text}]
-  let inputBuf = "";     // 累积用户转录片段
-  let outputBuf = "";    // 累积 Gemini 转录片段
+  let ctx = {};
+  let transcript = [];
+  let inputBuf = "";
+  let outputBuf = "";
 
-  // 从 WebSocket URL 提取 lang 参数，用于预热
   const urlParams = new URL(req.url, 'http://localhost');
   const prewarmLang = urlParams.searchParams.get('lang') || 'zh';
 
@@ -222,128 +260,102 @@ wss.on("connection", (clientWs, req) => {
     }
   }
 
-  // 预热：WebSocket 连接时立即开始连接 Gemini，降低用户等待时间
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const basePrompt = prewarmLang === 'en' ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_ZH;
-  let prewarmReady = false;
+  // Gemini 消息处理器（连接建立后绑定到 pool 的可变 handlers）
+  function onGeminiMessage(m) {
+    const _keys = Object.keys(m).filter(k => m[k] != null);
+    if (_keys.some(k => k !== 'serverContent')) {
+      console.log('[Live] msg fields:', _keys.join(', '));
+    }
 
-  const prewarmPromise = ai.live.connect({
-    model: "gemini-2.5-flash-native-audio-latest",
-    config: buildLiveConfig(basePrompt),
-    callbacks: {
-      onopen: () => {
-        console.log("[Live] Prewarm session opened");
-        prewarmReady = true;
-        // 不在此处发送 ready，等 start 消息到达后再通知前端
-      },
+    const parts = m.serverContent?.modelTurn?.parts ?? [];
+    let hasAudio = false;
+    for (const part of parts) {
+      if (part.inlineData?.mimeType?.startsWith("audio/")) {
+        hasAudio = true;
+        send({
+          type: "audio",
+          data: part.inlineData.data,
+          mime: part.inlineData.mimeType,
+        });
+      }
+    }
+    if (hasAudio && inputBuf) {
+      transcript.push({ role: "user", text: inputBuf });
+      send({ type: "turn", role: "user", text: inputBuf });
+      inputBuf = "";
+    }
 
-      onmessage: (m) => {
-        // 诊断：打印所有非空字段（排除纯 serverContent 的普通消息）
-        const _keys = Object.keys(m).filter(k => m[k] != null);
-        if (_keys.some(k => k !== 'serverContent')) {
-          console.log('[Live] msg fields:', _keys.join(', '));
+    const it = m.serverContent?.inputTranscription;
+    if (it?.text) {
+      inputBuf += it.text;
+      send({ type: "partial", role: "user", text: inputBuf });
+      if (it.finished) {
+        transcript.push({ role: "user", text: inputBuf });
+        send({ type: "turn", role: "user", text: inputBuf });
+        inputBuf = "";
+      }
+    }
+
+    const ot = m.serverContent?.outputTranscription;
+    if (ot?.text) {
+      outputBuf += ot.text;
+      send({ type: "partial", role: "model", text: outputBuf });
+    }
+    if (m.serverContent?.turnComplete) {
+      if (outputBuf) {
+        transcript.push({ role: "model", text: outputBuf });
+        send({ type: "turn", role: "model", text: outputBuf });
+        outputBuf = "";
+      }
+      inputBuf = "";
+    }
+
+    if (m.toolCall?.functionCalls?.length) {
+      const functionResponses = [];
+      for (const fc of m.toolCall.functionCalls) {
+        let response;
+        if (fc.name === "save_note") {
+          const text = String(fc.args?.text || "");
+          send({ type: "save_note", text });
+          response = { output: "已成功保存到日记" };
+
+        } else if (fc.name === "get_past_entries") {
+          const nDays = Math.min(Number(fc.args?.n_days) || 3, 7);
+          const cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() - nDays);
+          const filtered = (ctx.recentEntries || []).filter((e) => {
+            const d = new Date(e.date.replace(/\//g, "-"));
+            return d >= cutoff;
+          });
+          response = {
+            output: filtered.length
+              ? JSON.stringify(filtered)
+              : "该时间段内暂无日记记录",
+          };
+
+        } else if (fc.name === "get_today_summary") {
+          response = { output: ctx.todaySummary || "今日暂无AI总结" };
+
+        } else {
+          response = { error: `未知工具: ${fc.name}` };
         }
 
-        // 音频块 → 转发给前端播放
-        const parts = m.serverContent?.modelTurn?.parts ?? [];
-        let hasAudio = false;
-        for (const part of parts) {
-          if (part.inlineData?.mimeType?.startsWith("audio/")) {
-            hasAudio = true;
-            send({
-              type: "audio",
-              data: part.inlineData.data,
-              mime: part.inlineData.mimeType,
-            });
-          }
-        }
-        // 模型开始回复时，清空未完成的用户输入缓冲（防止 inputBuf 跨轮次积累）
-        if (hasAudio && inputBuf) {
-          transcript.push({ role: "user", text: inputBuf });
-          send({ type: "turn", role: "user", text: inputBuf });
-          inputBuf = "";
-        }
+        functionResponses.push({ id: fc.id, name: fc.name, response });
+      }
+      session.sendToolResponse({ functionResponses });
+      console.log("[Live] Tool responses sent:", functionResponses.map((r) => r.name));
+    }
+  }
 
-        // 用户语音转录
-        const it = m.serverContent?.inputTranscription;
-        if (it?.text) {
-          inputBuf += it.text;
-          send({ type: "partial", role: "user", text: inputBuf });
-          if (it.finished) {
-            transcript.push({ role: "user", text: inputBuf });
-            send({ type: "turn", role: "user", text: inputBuf });
-            inputBuf = "";
-          }
-        }
+  function onGeminiError(e) {
+    console.error("[Live] Error:", e);
+    send({ type: "error", message: String(e) });
+  }
 
-        // Gemini 语音转录
-        const ot = m.serverContent?.outputTranscription;
-        if (ot?.text) {
-          outputBuf += ot.text;
-          send({ type: "partial", role: "model", text: outputBuf });
-        }
-        if (m.serverContent?.turnComplete) {
-          if (outputBuf) {
-            transcript.push({ role: "model", text: outputBuf });
-            send({ type: "turn", role: "model", text: outputBuf });
-            outputBuf = "";
-          }
-          inputBuf = "";  // 轮次结束时清空残余用户输入
-        }
-
-        // 工具调用处理
-        if (m.toolCall?.functionCalls?.length) {
-          const functionResponses = [];
-          for (const fc of m.toolCall.functionCalls) {
-            let response;
-            if (fc.name === "save_note") {
-              const text = String(fc.args?.text || "");
-              send({ type: "save_note", text });
-              response = { output: "已成功保存到日记" };
-
-            } else if (fc.name === "get_past_entries") {
-              const nDays = Math.min(Number(fc.args?.n_days) || 3, 7);
-              const cutoff = new Date();
-              cutoff.setDate(cutoff.getDate() - nDays);
-              const filtered = (ctx.recentEntries || []).filter((e) => {
-                const d = new Date(e.date.replace(/\//g, "-"));
-                return d >= cutoff;
-              });
-              response = {
-                output: filtered.length
-                  ? JSON.stringify(filtered)
-                  : "该时间段内暂无日记记录",
-              };
-
-            } else if (fc.name === "get_today_summary") {
-              response = { output: ctx.todaySummary || "今日暂无AI总结" };
-
-            } else {
-              response = { error: `未知工具: ${fc.name}` };
-            }
-
-            functionResponses.push({ id: fc.id, name: fc.name, response });
-          }
-          session.sendToolResponse({ functionResponses });
-          console.log("[Live] Tool responses sent:", functionResponses.map((r) => r.name));
-        }
-      },
-
-      onerror: (e) => {
-        console.error("[Live] Error:", e);
-        send({ type: "error", message: String(e) });
-      },
-
-      onclose: (e) => {
-        console.log("[Live] Session closed, code:", e?.code, "reason:", e?.reason);
-        send({ type: "closed" });
-      },
-    },
-  }).then(s => { session = s; return s; })
-    .catch(e => {
-      console.error("[Live] Prewarm failed:", e);
-      return null;
-    });
+  function onGeminiClose(e) {
+    console.log("[Live] Session closed, code:", e?.code, "reason:", e?.reason);
+    send({ type: "closed" });
+  }
 
   clientWs.on("message", async (raw) => {
     let msg;
@@ -357,14 +369,40 @@ wss.on("connection", (clientWs, req) => {
       try {
         ctx = msg.context || {};
         const lang = msg.lang || prewarmLang;
-        console.log("[Live] start received, waiting for prewarm, lang:", lang);
+        console.log("[Live] start received, lang:", lang);
 
-        // 等待预热完成（通常已经完成，几乎无延迟）
-        await prewarmPromise;
+        // 取出该语言的预热 session，立刻补充新预热（让下一位用户也能快速连接）
+        const poolPromise = pool[lang] || pool['zh'];
+        pool[lang] = null;
+        fillPool(lang);  // 立即开始为下一位用户预热
+
+        const poolEntry = poolPromise ? await poolPromise : null;
+
+        if (poolEntry) {
+          session = poolEntry.session;
+          // 绑定 client 专属处理器，回放预热期间缓存的消息（通常为空）
+          poolEntry.handlers.onmsg   = onGeminiMessage;
+          poolEntry.handlers.onerr   = onGeminiError;
+          poolEntry.handlers.onclose = onGeminiClose;
+          for (const m of poolEntry.queue) onGeminiMessage(m);
+          poolEntry.queue.length = 0;
+          console.log("[Live] Pool session taken, injecting context with", ctx.recentEntries?.length || 0, "entries");
+        } else {
+          // 降级：直接为此 client 新建 session（慢路径，pool 耗尽时触发）
+          console.warn("[Live] Pool miss, creating session directly");
+          session = await ai.live.connect({
+            model: "gemini-2.5-flash-native-audio-latest",
+            config: buildLiveConfig(lang === 'en' ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_ZH),
+            callbacks: {
+              onopen:    () => {},
+              onmessage: onGeminiMessage,
+              onerror:   onGeminiError,
+              onclose:   onGeminiClose,
+            },
+          });
+        }
 
         if (session) {
-          // 预热成功：注入用户上下文再触发问候
-          console.log("[Live] Prewarm ready, injecting context with", ctx.recentEntries?.length || 0, "entries");
           const contextText = buildContextInjection(ctx, lang);
           if (contextText) {
             await session.sendClientContent({
@@ -379,8 +417,6 @@ wss.on("connection", (clientWs, req) => {
           });
           console.log("[Live] Context injected, greeting trigger sent");
         } else {
-          // 预热失败，通知前端重试
-          console.error("[Live] Prewarm session unavailable, asking client to retry");
           send({ type: "error", message: "连接初始化失败，请重试" });
         }
       } catch (e) {
@@ -389,8 +425,6 @@ wss.on("connection", (clientWs, req) => {
       }
 
     } else if (msg.type === "audio" && session) {
-      // 接收前端 PCM 块（base64），转发给 Gemini
-      // SDK 期望 { data: base64, mimeType: string }，不是原生 Blob
       try {
         session.sendRealtimeInput({
           audio: { data: msg.data, mimeType: "audio/pcm;rate=16000" },
@@ -400,7 +434,6 @@ wss.on("connection", (clientWs, req) => {
       }
 
     } else if (msg.type === "interrupt" && session) {
-      // 用户 VAD 检测到打断，立即中止 Gemini 当前生成轮次
       try {
         session.sendClientContent({
           turns: [{ role: 'user', parts: [{ text: '' }] }],
@@ -419,7 +452,6 @@ wss.on("connection", (clientWs, req) => {
       } catch(e) { console.error('[Live] Force end error:', e); }
 
     } else if (msg.type === "end") {
-      // 用户主动结束对话
       try {
         session?.close();
       } catch {}

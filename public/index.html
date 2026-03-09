@@ -1348,6 +1348,16 @@
       await _sil.play();
     } catch(e) {}
 
+    // 在用户手势内同步创建 playbackCtx（iOS Safari 要求）
+    // 不能等到 ready 消息时再创建，否则已脱离手势上下文，AudioContext 会被挂起
+    if (!playbackCtx) {
+      playbackCtx = new AudioContext({ sampleRate: 24000 });
+      masterGain = playbackCtx.createGain();
+      masterGain.connect(playbackCtx.destination);
+      nextPlayTime = 0;
+    }
+    if (playbackCtx.state === 'suspended') await playbackCtx.resume();
+
     // 35s 连接超时：若未收到 ready 则重置并提示重试
     connectTimer = setTimeout(() => {
       if (convActive && !captureCtx) {
@@ -1448,14 +1458,8 @@
         };
         source.connect(workletNode);
 
-        // 在用户手势链中预创建 playbackCtx，避免 iOS AudioContext 被挂起
-        if (!playbackCtx) {
-          playbackCtx = new AudioContext({ sampleRate: 24000 });
-          masterGain = playbackCtx.createGain();
-          masterGain.connect(playbackCtx.destination);
-          nextPlayTime = 0;
-        }
-        if (playbackCtx.state === 'suspended') await playbackCtx.resume();
+        // playbackCtx 已在 startConversation() 的用户手势内创建，这里只确保未被挂起
+        if (playbackCtx?.state === 'suspended') await playbackCtx.resume();
 
         document.getElementById('recordBtn').disabled = false;
         document.getElementById('recordHint').textContent = t('greeting');
