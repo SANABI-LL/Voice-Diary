@@ -3,6 +3,42 @@
 > An AI-powered voice diary PWA with real-time conversational companion, automatic transcription, daily summaries, and illustrated memories.
 
 **Live Demo:** https://voice-diary-947562481976.us-central1.run.app
+**GitHub:** https://github.com/SANABI-LL/Voice-Diary
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TD
+    subgraph Browser["🌐 Browser — PWA (installable)"]
+        MIC["🎤 MediaRecorder\nAudioWorklet PCM 16kHz"]
+        UI["Single-file SPA\npublic/index.html"]
+        STORE["💾 localStorage\n+ IndexedDB"]
+    end
+
+    subgraph GCR["☁️ Google Cloud Run — Express + WebSocket"]
+        TR["POST /api/transcribe"]
+        SUM["POST /api/summarize"]
+        ILL["POST /api/illustrate"]
+        EXP["POST /api/export"]
+        WS["WS /live\nLive API Proxy"]
+    end
+
+    subgraph Gemini["✨ Gemini APIs"]
+        G1["gemini-2.0-flash\ntranscription · summary · translation"]
+        G2["gemini-2.5-flash-native-audio-latest\nreal-time voice conversation"]
+        G3["gemini-2.5-flash-image\nwatercolor illustration"]
+    end
+
+    MIC -->|"WebM audio"| TR --> G1
+    UI -->|"entries JSON"| SUM --> G1
+    UI -->|"summary text"| ILL --> G3
+    UI -->|"entries + images"| EXP
+    MIC <-->|"PCM 16kHz ↑ / PCM 24kHz ↓\n+ transcription + function calls"| WS <-->|bidirectional| G2
+    G1 -->|transcribed text| STORE
+    G3 -->|illustration data URL| STORE
+```
 
 ---
 
@@ -75,8 +111,8 @@ Express Server — Google Cloud Run (Node.js 20)
 
 ```bash
 # 1. Clone the repo
-git clone <repo-url>
-cd voice-diary
+git clone https://github.com/SANABI-LL/Voice-Diary.git
+cd Voice-Diary
 
 # 2. Install root dependencies (used by api/ handlers)
 npm install
