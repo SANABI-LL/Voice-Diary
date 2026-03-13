@@ -180,7 +180,7 @@
     background: var(--bg2);
     border: 1px solid var(--border);
     border-radius: 16px;
-    padding: 14px 16px;
+    padding: 14px 72px 14px 16px;
     position: relative;
     animation: slideIn 0.3s ease;
   }
@@ -301,18 +301,20 @@
   .entry-delete {
     position: absolute;
     top: 10px;
-    right: 12px;
+    right: 10px;
     background: none;
     border: none;
     color: var(--text-dim);
     cursor: pointer;
     font-size: 1rem;
-    padding: 2px 6px;
+    padding: 4px 7px;
     border-radius: 8px;
     transition: all 0.15s;
     line-height: 1;
+    opacity: 0.7;
   }
-  .entry-delete:hover { color: var(--red); background: rgba(212,96,74,0.1); }
+  .entry-card:hover .entry-delete { opacity: 1; }
+  .entry-delete:hover { color: var(--red); background: rgba(212,96,74,0.12); opacity: 1; }
 
   .empty-state {
     text-align: center;
@@ -470,11 +472,13 @@
   .play-btn:hover { color:var(--warm); background:var(--warm-dim); }
 
   /* Hide button */
-  .entry-hide { position:absolute; top:10px; right:36px; background:none; border:none;
-                cursor:pointer; font-size:0.78rem; padding:2px 6px; border-radius:6px;
-                color:var(--text-dim); transition:all 0.15s; }
-  .entry-hide:hover { color:var(--text); background:var(--warm-dim); }
+  .entry-hide { position:absolute; top:10px; right:38px; background:none; border:none;
+                cursor:pointer; font-size:0.78rem; padding:4px 6px; border-radius:6px;
+                color:var(--text-dim); transition:all 0.15s; opacity:0.7; }
+  .entry-card:hover .entry-hide { opacity:1; }
+  .entry-hide:hover { color:var(--text); background:var(--warm-dim); opacity:1; }
   .entry-hidden { color:var(--text-dim) !important; font-style:italic; letter-spacing:0.1em; }
+
 
   /* Export button */
   .export-btn { width:100%; margin-top:8px; padding:13px; background:var(--bg3);
@@ -549,6 +553,67 @@
   }
   .end-conv-btn.active { display: block; }
   .end-conv-btn:active { background: rgba(212,96,74,0.2); }
+
+  /* ===== 念念 Avatar ===== */
+  #nnAvatarWrap { display:none; align-items:center; justify-content:center; padding:2px 0 10px; }
+  #nnAvatarWrap.active { display:flex; }
+  #nnAvatar { overflow:visible; transition:filter 0.4s; }
+  #nnAvatar[data-state="happy"], #nnAvatar[data-state="celebrate"] { filter:drop-shadow(0 4px 18px rgba(255,215,0,0.4)); }
+  #nnAvatar[data-state="love"] { filter:drop-shadow(0 4px 14px rgba(224,92,92,0.32)); }
+  #nnAvatar[data-state="talking"] { filter:drop-shadow(0 4px 14px rgba(232,168,87,0.28)); }
+
+  .nn-s-idle,.nn-s-listening,.nn-s-thinking,.nn-s-talking,
+  .nn-s-happy,.nn-s-celebrate,.nn-s-love,
+  .nn-d-pulse,.nn-d-gear,.nn-d-tdots,.nn-d-waves,
+  .nn-d-sparkles,.nn-d-confetti,.nn-d-hearts { display:none; }
+
+  #nnAvatar[data-state="idle"] .nn-s-idle { display:block; }
+  #nnAvatar[data-state="listening"] .nn-s-listening { display:block; }
+  #nnAvatar[data-state="listening"] .nn-d-pulse { display:block; }
+  #nnAvatar[data-state="thinking"] .nn-s-thinking { display:block; }
+  #nnAvatar[data-state="thinking"] .nn-d-gear { display:block; }
+  #nnAvatar[data-state="thinking"] .nn-d-tdots { display:block; }
+  #nnAvatar[data-state="talking"] .nn-s-talking { display:block; }
+  #nnAvatar[data-state="talking"] .nn-d-waves { display:block; }
+  #nnAvatar[data-state="happy"] .nn-s-happy { display:block; }
+  #nnAvatar[data-state="happy"] .nn-d-sparkles { display:block; }
+  #nnAvatar[data-state="celebrate"] .nn-s-celebrate { display:block; }
+  #nnAvatar[data-state="celebrate"] .nn-d-confetti { display:block; }
+  #nnAvatar[data-state="love"] .nn-s-love { display:block; }
+  #nnAvatar[data-state="love"] .nn-d-hearts { display:block; }
+
+  @keyframes nnBreathe { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
+  #nnAvatar[data-state="idle"] { animation:nnBreathe 3.5s ease-in-out infinite; }
+  @keyframes nnPulse { 0%,100%{stroke-opacity:0;transform:scale(1)} 50%{stroke-opacity:0.5;transform:scale(1.08)} }
+  .nn-pulse-ring { transform-origin:40px 40px; animation:nnPulse 1.5s ease-in-out infinite; }
+  @keyframes nnGearSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .nn-gear-spin { animation:nnGearSpin 2s linear infinite; }
+  @keyframes nnDot { 0%,100%{opacity:0.2;transform:translateY(0)} 50%{opacity:1;transform:translateY(-3px)} }
+  .nn-dot1{animation:nnDot 1s ease-in-out infinite 0s}
+  .nn-dot2{animation:nnDot 1s ease-in-out infinite 0.22s}
+  .nn-dot3{animation:nnDot 1s ease-in-out infinite 0.44s}
+  @keyframes nnWaveAnim { 0%,100%{opacity:0.15;transform:scaleX(0.7)} 50%{opacity:0.9;transform:scaleX(1.35)} }
+  .nn-wv1{transform-origin:7px 40px;animation:nnWaveAnim 0.55s ease-in-out infinite 0s}
+  .nn-wv2{transform-origin:2px 40px;animation:nnWaveAnim 0.55s ease-in-out infinite 0.1s}
+  .nn-wv3{transform-origin:73px 40px;animation:nnWaveAnim 0.55s ease-in-out infinite 0s}
+  .nn-wv4{transform-origin:78px 40px;animation:nnWaveAnim 0.55s ease-in-out infinite 0.1s}
+  @keyframes nnSpark { 0%,100%{opacity:0;transform:scale(0) rotate(0deg)} 40%,60%{opacity:1;transform:scale(1.1) rotate(25deg)} }
+  .nn-sp1{transform-origin:8px 8px;animation:nnSpark 1.6s ease-in-out infinite 0s}
+  .nn-sp2{transform-origin:74px 8px;animation:nnSpark 1.6s ease-in-out infinite 0.35s}
+  .nn-sp3{transform-origin:8px 74px;animation:nnSpark 1.6s ease-in-out infinite 0.7s}
+  .nn-sp4{transform-origin:74px 74px;animation:nnSpark 1.6s ease-in-out infinite 1.05s}
+  @keyframes nnConf { 0%{transform:translateY(0) rotate(0deg);opacity:1} 100%{transform:translateY(55px) rotate(300deg);opacity:0} }
+  .nn-cf1{animation:nnConf 1.3s ease-in infinite 0s}
+  .nn-cf2{animation:nnConf 1.3s ease-in infinite 0.18s}
+  .nn-cf3{animation:nnConf 1.3s ease-in infinite 0.36s}
+  .nn-cf4{animation:nnConf 1.3s ease-in infinite 0.54s}
+  .nn-cf5{animation:nnConf 1.3s ease-in infinite 0.72s}
+  .nn-cf6{animation:nnConf 1.3s ease-in infinite 0.9s}
+  @keyframes nnHeart { 0%{transform:translateY(0) scale(0.4);opacity:0} 30%{opacity:1} 100%{transform:translateY(-42px) scale(1.1);opacity:0} }
+  .nn-h1{animation:nnHeart 2.2s ease-out infinite 0s}
+  .nn-h2{animation:nnHeart 2.2s ease-out infinite 0.65s}
+  .nn-h3{animation:nnHeart 2.2s ease-out infinite 1.3s}
+
   /* 补录日期 banner */
   .date-banner {
     display:flex; align-items:center; justify-content:space-between;
@@ -775,6 +840,189 @@
     <div class="record-hint" id="recordHint"><span data-i18n="recordHint">按下开始与念念对话</span><br><span style="font-size:0.75rem;opacity:0.6" data-i18n="recordHintSub">AI语音陪伴 · 对话结束后生成总结</span></div>
   </div>
 
+  <!-- 念念 Avatar -->
+  <div id="nnAvatarWrap">
+    <svg id="nnAvatar" viewBox="-18 -18 116 125" width="96" height="96" data-state="idle">
+      <defs>
+        <clipPath id="nnCircle"><circle cx="40" cy="38" r="37.5"/></clipPath>
+      </defs>
+
+      <!-- ── background circle ── -->
+      <circle cx="40" cy="38" r="38" fill="var(--bg2)" stroke="var(--border)" stroke-width="1"/>
+
+      <!-- ── long hair back layer (flows outside circle) ── -->
+      <path d="M19,26 Q8,46 9,70 Q10,84 14,90 Q17,94 21,89 Q18,75 17,54 Q15,38 20,26 Z" fill="#2a1a0a"/>
+      <path d="M61,26 Q72,46 71,70 Q70,84 66,90 Q63,94 59,89 Q62,75 63,54 Q65,38 60,26 Z" fill="#2a1a0a"/>
+
+      <!-- ── jacket + shirt (clipped inside circle) ── -->
+      <g clip-path="url(#nnCircle)">
+        <rect x="6" y="61" width="68" height="25" rx="4" fill="#2a3878"/>
+        <!-- gold collar trim line -->
+        <rect x="6" y="61" width="68" height="3.5" fill="#c8951a"/>
+        <!-- left/right gold piping -->
+        <rect x="6" y="61" width="3" height="25" fill="#c8951a"/>
+        <rect x="71" y="61" width="3" height="25" fill="#c8951a"/>
+        <!-- white shirt V-collar -->
+        <polygon points="30,62 40,74 50,62" fill="white"/>
+        <line x1="33" y1="62" x2="40" y2="73" stroke="#c8c8c8" stroke-width="1"/>
+        <line x1="47" y1="62" x2="40" y2="73" stroke="#c8c8c8" stroke-width="1"/>
+        <!-- dark tie -->
+        <polygon points="38,63 40,74 42,63 40,68" fill="#1a1a2e"/>
+      </g>
+
+      <!-- ── face ── -->
+      <circle cx="40" cy="41" r="19" fill="#f0c898"/>
+
+      <!-- ── hair top (front, covers face sides) ── -->
+      <ellipse cx="40" cy="23" rx="21" ry="19" fill="#3d2010"/>
+      <!-- side hair strands over ears -->
+      <path d="M20,28 Q17,40 19,54" stroke="#3d2010" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <path d="M60,28 Q63,40 61,54" stroke="#3d2010" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <!-- inner face-framing wisps -->
+      <path d="M23,32 Q22,44 24,54" stroke="#4a2812" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <path d="M57,32 Q58,44 56,54" stroke="#4a2812" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <!-- ahoge -->
+      <path d="M40,5 Q45,13 40,19 Q35,13 40,5" fill="#3d2010"/>
+
+      <!-- ── headphones ── -->
+      <path d="M22,34 Q22,13 40,13 Q58,13 58,34" stroke="#e8a857" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <rect x="13" y="30" width="11" height="16" rx="5.5" fill="#e8a857"/>
+      <rect x="56" y="30" width="11" height="16" rx="5.5" fill="#e8a857"/>
+      <!-- cup inner shadow -->
+      <rect x="15" y="33" width="4" height="7" rx="2" fill="rgba(0,0,0,0.18)"/>
+      <rect x="58" y="33" width="4" height="7" rx="2" fill="rgba(0,0,0,0.18)"/>
+      <!-- cup highlight -->
+      <rect x="15" y="33" width="2.5" height="4" rx="1.2" fill="rgba(255,255,255,0.32)"/>
+      <rect x="58" y="33" width="2.5" height="4" rx="1.2" fill="rgba(255,255,255,0.32)"/>
+
+      <!-- ── STATE EYES ── -->
+      <!-- open: idle / listening / talking -->
+      <g class="nn-s-idle nn-s-listening nn-s-talking">
+        <!-- left eye: white + iris + pupil + highlight -->
+        <ellipse cx="33" cy="40" rx="5" ry="5.5" fill="white"/>
+        <ellipse cx="33" cy="40.5" rx="3.8" ry="4.2" fill="#1a0f05"/>
+        <ellipse cx="33" cy="40.5" rx="2.2" ry="2.5" fill="#3d1a00"/>
+        <circle cx="31.2" cy="38.5" r="1.5" fill="rgba(255,255,255,0.85)"/>
+        <!-- right eye -->
+        <ellipse cx="47" cy="40" rx="5" ry="5.5" fill="white"/>
+        <ellipse cx="47" cy="40.5" rx="3.8" ry="4.2" fill="#1a0f05"/>
+        <ellipse cx="47" cy="40.5" rx="2.2" ry="2.5" fill="#3d1a00"/>
+        <circle cx="45.2" cy="38.5" r="1.5" fill="rgba(255,255,255,0.85)"/>
+        <!-- eyelash top -->
+        <path d="M28,37 Q33,35 38,37" stroke="#1a0f05" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <path d="M42,37 Q47,35 52,37" stroke="#1a0f05" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      </g>
+      <!-- squinting: thinking -->
+      <g class="nn-s-thinking">
+        <path d="M28,40 Q33,36 38,40" stroke="#1a0f05" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M42,40 Q47,36 52,40" stroke="#1a0f05" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M28,40 Q33,37 38,40" stroke="rgba(26,15,5,0.3)" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <path d="M42,40 Q47,37 52,40" stroke="rgba(26,15,5,0.3)" stroke-width="4" fill="none" stroke-linecap="round"/>
+      </g>
+      <!-- happy crescents: happy / celebrate -->
+      <g class="nn-s-happy nn-s-celebrate">
+        <path d="M28,41 Q33,36.5 38,41" stroke="#1a0f05" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+        <path d="M42,41 Q47,36.5 52,41" stroke="#1a0f05" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+        <path d="M28,41 Q33,37 38,41" stroke="rgba(26,15,5,0.25)" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <path d="M42,41 Q47,37 52,41" stroke="rgba(26,15,5,0.25)" stroke-width="5" fill="none" stroke-linecap="round"/>
+      </g>
+      <!-- heart eyes: love -->
+      <g class="nn-s-love">
+        <text x="33" y="44" text-anchor="middle" font-size="10" fill="#e05c5c">♥</text>
+        <text x="47" y="44" text-anchor="middle" font-size="10" fill="#e05c5c">♥</text>
+      </g>
+
+      <!-- ── STATE MOUTHS ── -->
+      <!-- idle: gentle smile -->
+      <g class="nn-s-idle">
+        <path d="M34,51 Q40,56 46,51" stroke="#1a0f05" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </g>
+      <!-- listening: slight open -->
+      <g class="nn-s-listening">
+        <path d="M34,51 Q40,56 46,51" stroke="#1a0f05" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <ellipse cx="40" cy="52.5" rx="2.5" ry="1.6" fill="rgba(26,15,5,0.3)"/>
+      </g>
+      <!-- thinking: pressed flat -->
+      <g class="nn-s-thinking">
+        <ellipse cx="40" cy="52" rx="4" ry="2" fill="#1a0f05"/>
+      </g>
+      <!-- talking: open mouth -->
+      <g class="nn-s-talking">
+        <path d="M33,50 Q40,62 47,50" stroke="#1a0f05" stroke-width="1.5" fill="#b86858" stroke-linecap="round"/>
+        <ellipse cx="40" cy="54" rx="4" ry="3" fill="#9a4838"/>
+      </g>
+      <!-- happy: big smile -->
+      <g class="nn-s-happy">
+        <path d="M31,51 Q40,59 49,51" stroke="#1a0f05" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+        <path d="M31,51 Q40,59 49,51" stroke="rgba(26,15,5,0.15)" stroke-width="5" fill="none" stroke-linecap="round"/>
+      </g>
+      <!-- celebrate: open laugh + teeth -->
+      <g class="nn-s-celebrate">
+        <path d="M31,50 Q40,62 49,50" stroke="#1a0f05" stroke-width="1.5" fill="#b86858" stroke-linecap="round"/>
+        <rect x="34.5" y="51.5" width="11" height="5" rx="1.5" fill="rgba(255,255,255,0.92)"/>
+      </g>
+      <!-- love: soft smile + blush -->
+      <g class="nn-s-love">
+        <path d="M34,51 Q40,56 46,51" stroke="#1a0f05" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <ellipse cx="27" cy="47" rx="5.5" ry="3.5" fill="rgba(220,100,90,0.28)"/>
+        <ellipse cx="53" cy="47" rx="5.5" ry="3.5" fill="rgba(220,100,90,0.28)"/>
+      </g>
+
+      <!-- ── DECORATIONS ── -->
+      <!-- listening: pulse ring -->
+      <g class="nn-d-pulse">
+        <circle cx="40" cy="38" r="41" fill="none" stroke="#e8a857" stroke-width="2" class="nn-pulse-ring"/>
+      </g>
+      <!-- thinking: gear + dots -->
+      <g class="nn-d-gear">
+        <g class="nn-gear-spin">
+          <circle cx="67" cy="9" r="6" fill="none" stroke="#e8a857" stroke-width="2"/>
+          <circle cx="67" cy="9" r="2.2" fill="#e8a857"/>
+          <line x1="67" y1="0.5" x2="67" y2="3.5" stroke="#e8a857" stroke-width="2.2" stroke-linecap="round"/>
+          <line x1="67" y1="14.5" x2="67" y2="17.5" stroke="#e8a857" stroke-width="2.2" stroke-linecap="round"/>
+          <line x1="58.5" y1="9" x2="61.5" y2="9" stroke="#e8a857" stroke-width="2.2" stroke-linecap="round"/>
+          <line x1="72.5" y1="9" x2="75.5" y2="9" stroke="#e8a857" stroke-width="2.2" stroke-linecap="round"/>
+          <line x1="61" y1="3" x2="63.2" y2="5.2" stroke="#e8a857" stroke-width="2" stroke-linecap="round"/>
+          <line x1="70.8" y1="12.8" x2="73" y2="15" stroke="#e8a857" stroke-width="2" stroke-linecap="round"/>
+        </g>
+      </g>
+      <g class="nn-d-tdots">
+        <circle cx="35" cy="66" r="2.4" fill="#e8a857" class="nn-dot1"/>
+        <circle cx="40" cy="66" r="2.4" fill="#e8a857" class="nn-dot2"/>
+        <circle cx="45" cy="66" r="2.4" fill="#e8a857" class="nn-dot3"/>
+      </g>
+      <!-- talking: sound waves -->
+      <g class="nn-d-waves">
+        <path d="M5,31 Q1,39 5,47" stroke="#e8a857" stroke-width="2" fill="none" stroke-linecap="round" class="nn-wv1"/>
+        <path d="M0,25 Q-5,39 0,53" stroke="#e8a857" stroke-width="2" fill="none" stroke-linecap="round" class="nn-wv2"/>
+        <path d="M75,31 Q79,39 75,47" stroke="#e8a857" stroke-width="2" fill="none" stroke-linecap="round" class="nn-wv3"/>
+        <path d="M80,25 Q85,39 80,53" stroke="#e8a857" stroke-width="2" fill="none" stroke-linecap="round" class="nn-wv4"/>
+      </g>
+      <!-- happy: sparkles -->
+      <g class="nn-d-sparkles">
+        <path d="M5,5 L6.5,1 L8,5 L12,6.5 L8,8 L6.5,12 L5,8 L1,6.5 Z" fill="#ffd700" class="nn-sp1"/>
+        <path d="M75,5 L76.5,1 L78,5 L82,6.5 L78,8 L76.5,12 L75,8 L71,6.5 Z" fill="#ffd700" class="nn-sp2"/>
+        <path d="M5,74 L6.5,70 L8,74 L12,75.5 L8,77 L6.5,81 L5,77 L1,75.5 Z" fill="#ffd700" class="nn-sp3"/>
+        <path d="M75,74 L76.5,70 L78,74 L82,75.5 L78,77 L76.5,81 L75,77 L71,75.5 Z" fill="#ffd700" class="nn-sp4"/>
+      </g>
+      <!-- celebrate: confetti -->
+      <g class="nn-d-confetti">
+        <rect x="14" y="-14" width="6" height="3.5" rx="1" fill="#e05c5c" class="nn-cf1"/>
+        <rect x="30" y="-16" width="5" height="5" rx="1" fill="#5b8de0" class="nn-cf2"/>
+        <rect x="50" y="-14" width="6" height="3.5" rx="1" fill="#5bbf8a" class="nn-cf3"/>
+        <rect x="66" y="-15" width="5" height="5" rx="1" fill="#ffd700" class="nn-cf4"/>
+        <rect x="4" y="-9" width="5" height="5" rx="1" fill="#9b7fdb" class="nn-cf5"/>
+        <rect x="75" y="-11" width="6" height="3.5" rx="1" fill="#e8a857" class="nn-cf6"/>
+      </g>
+      <!-- love: hearts -->
+      <g class="nn-d-hearts">
+        <text x="6" y="24" font-size="12" fill="#e05c5c" class="nn-h1">♥</text>
+        <text x="69" y="19" font-size="10" fill="#e05c5c" class="nn-h2">♥</text>
+        <text x="37" y="4" font-size="14" fill="#e05c5c" class="nn-h3">♥</text>
+      </g>
+    </svg>
+  </div>
+
   <!-- 对话聊天区 -->
   <div class="conversation-area" id="convArea"></div>
   <div class="speaking-wave" id="speakWave">
@@ -853,6 +1101,7 @@
     <input type="file" id="importDataFile" accept=".json" style="display:none" onchange="importAllData(this)">
   </div>
 </div>
+
 
 </div><!-- /page-content -->
 
@@ -1291,6 +1540,18 @@
     if (entry) { entry.hidden = !entry.hidden; saveEntries(); renderEntries(); }
   }
 
+  // 日历面板版：操作后同时刷新日历面板
+  function calToggleHide(id) {
+    toggleHide(id);
+    const sel = document.querySelector('.cal-day.selected');
+    if (sel && calSelected) selectDay(calSelected, sel);
+  }
+  function calDeleteEntry(id) {
+    deleteEntry(id);
+    const sel = document.querySelector('.cal-day.selected');
+    if (sel && calSelected) selectDay(calSelected, sel);
+  }
+
   function deleteEntry(id) {
     const entry = entries.find(e => e.id === id);
     if (!entry) return;
@@ -1309,6 +1570,42 @@
       saveEntries();
       renderEntries();
     });
+  }
+
+  // ===== 念念 Avatar 情绪状态机 =====
+  let nnEmo = 'idle';
+  let nnEmoTimer = null;
+
+  function setNNState(state, durationMs) {
+    const av = document.getElementById('nnAvatar');
+    if (!av) return;
+    if (nnEmo === state && !durationMs) return;
+    nnEmo = state;
+    av.setAttribute('data-state', state);
+    clearTimeout(nnEmoTimer); nnEmoTimer = null;
+    if (durationMs) nnEmoTimer = setTimeout(() => setNNState('idle'), durationMs);
+  }
+
+  function showNNAvatar() {
+    document.getElementById('nnAvatarWrap').classList.add('active');
+    nnEmo = ''; setNNState('idle');
+  }
+
+  function hideNNAvatar() {
+    document.getElementById('nnAvatarWrap').classList.remove('active');
+    clearTimeout(nnEmoTimer); nnEmoTimer = null;
+  }
+
+  function detectNNEmotion(text) {
+    if (!text) return null;
+    const s = text.toLowerCase();
+    const celebrate = ['恭喜','庆祝','达成','里程碑','太棒了','congratulations','celebrate','milestone','achieved','amazing'];
+    const happy = ['太好了','成功','完成','开心','棒','哈哈','厉害','great','done','success','awesome','yay','happy','wonderful'];
+    const love = ['爱','想你','感谢','谢谢','抱抱','温柔','喜欢','love','miss','thank','hug','care','warm','sweet'];
+    if (celebrate.some(w => s.includes(w))) return 'celebrate';
+    if (happy.some(w => s.includes(w))) return 'happy';
+    if (love.some(w => s.includes(w))) return 'love';
+    return null;
   }
 
   // Recording
@@ -1535,6 +1832,17 @@
       clearTimeout(connectTimer); connectTimer = null;
       clearInterval(connectMsgTimer); connectMsgTimer = null;
       await setupMicAndPlayback();
+      showNNAvatar();
+
+    } else if (msg.type === 'interrupted') {
+      // Gemini 服务端 VAD 确认打断，停止本地播放
+      stopPlayback();
+      modelSpeaking = false;
+      userBargedIn = true;
+      vadFrameCount = 0;
+      clearTimeout(bargeInTimer);
+      bargeInTimer = setTimeout(() => { userBargedIn = false; bargeInTimer = null; }, 3000);
+      setNNState('listening');
 
     } else if (msg.type === 'audio') {
       if (userBargedIn) return;  // 用户已打断，忽略剩余模型音频
@@ -1546,6 +1854,7 @@
         for (let i = 0; i < raw.length; i++) raw[i] = (bin.charCodeAt(i*2) | (bin.charCodeAt(i*2+1) << 8));
         convModelPCM.push(raw); }
       document.getElementById('speakWave').classList.add('active');
+      setNNState('talking');
       // 模型开始回应：确认待定的用户气泡（turn-user 可能还未到达）
       if (partialEls['user']) {
         partialEls['user'].bubble.classList.remove('partial');
@@ -1560,6 +1869,7 @@
       if (msg.role === 'user') {
         lastModelBubble = null;
         lastModelTextPrefix = '';
+        setNNState('listening');
       }
       updatePartialBubble(msg.role, msg.text);
       // 模型开始转录，重置计时器
@@ -1575,6 +1885,7 @@
         // 用户说完话，重置模型气泡合并状态（下一段模型回复是全新气泡）
         lastModelBubble = null;
         lastModelTextPrefix = '';
+        setNNState('thinking');
       }
       if (msg.role === 'model') {
         modelSpeaking = false;
@@ -1584,6 +1895,8 @@
         document.getElementById('speakWave').classList.remove('active');
         const hint = document.getElementById('recordHint');
         if (hint.textContent === t('greeting')) hint.textContent = t('convActive');
+        const detected = detectNNEmotion(msg.text);
+        setNNState(detected || 'idle', detected ? 3000 : 0);
       }
 
     } else if (msg.type === 'save_note') {
@@ -1593,6 +1906,7 @@
       saveEntries();
       renderEntries();
       showToast(t('noteToast'));
+      setNNState('happy', 2500);
 
     } else if (msg.type === 'done') {
       finishConversation(msg.transcript);
@@ -1659,6 +1973,7 @@
   }
 
   function resetConvUI() {
+    hideNNAvatar();
     convActive = false;
     modelSpeaking = false;
     userBargedIn = false;
@@ -2298,9 +2613,12 @@ document.getElementById('speakWave').classList.remove('active');
         const card = document.createElement('div');
         card.className = 'entry-card';
         card.style.animation = 'none';
+        const isHidden = entry.hidden;
         card.innerHTML = `
           <div class="entry-time">${entry.time}${entry.hasAudio ? ` <button class="play-btn" data-id="${entry.id}" onclick="playAudio(${entry.id})" title="${t('playHint')}">▶</button>` : ''}</div>
-          <div class="entry-text">${entry.text}</div>
+          <div class="entry-text ${isHidden ? 'entry-hidden' : ''}">${isHidden ? t('hiddenLabel') : entry.text}</div>
+          <button class="entry-hide" onclick="calToggleHide(${entry.id})">${isHidden ? t('showHint') : t('hideHint')}</button>
+          <button class="entry-delete" onclick="calDeleteEntry(${entry.id})" title="${t('deleteBtnTitle')}">×</button>
         `;
         list.appendChild(card);
       });

@@ -267,6 +267,14 @@ wss.on("connection", (clientWs, req) => {
       console.log('[Live] msg fields:', _keys.join(', '));
     }
 
+    // Gemini VAD 检测到用户说话，模型被打断
+    if (m.serverContent?.interrupted) {
+      console.log('[Live] Gemini interrupted (user barge-in)');
+      send({ type: 'interrupted' });
+      outputBuf = "";
+      turnHasAudio = false;
+    }
+
     const parts = m.serverContent?.modelTurn?.parts ?? [];
     let hasAudio = false;
     for (const part of parts) {
