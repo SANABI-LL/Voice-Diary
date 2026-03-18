@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1262,7 +1262,7 @@
       closeBtn: 'Close', translating: 'Translating...', expandBtn: 'Read more',
     }
   };
-  let currentLang = localStorage.getItem('vd_lang') || 'zh';
+  let currentLang = localStorage.getItem('vd_lang') || 'en';
   function t(key) { return (I18N[currentLang] || I18N.zh)[key] ?? I18N.zh[key] ?? key; }
 
   function applyI18n() {
