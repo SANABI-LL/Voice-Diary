@@ -280,8 +280,46 @@
     transition:background 0.15s, color 0.15s, border-color 0.15s; }
   .album-filter-btn.active {
     background:var(--warm); color:#13100e; border-color:var(--warm); font-weight:600; }
-  .album-count { margin-left:auto; font-size:0.7rem; color:var(--text-dim); }
+  .album-count { font-size:0.7rem; color:var(--text-dim); }
   .album-empty { text-align:center; padding:60px 20px; color:var(--text-dim); font-size:0.88rem; grid-column:1/-1; }
+  /* 布局切换按钮 */
+  .album-layout-btns {
+    display:flex; gap:4px; margin-left:auto; }
+  .album-layout-btn {
+    width:28px; height:28px; border-radius:8px; border:1px solid var(--border);
+    background:none; color:var(--text-dim); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:background 0.15s, color 0.15s, border-color 0.15s; }
+  .album-layout-btn.active {
+    background:var(--warm); color:#13100e; border-color:var(--warm); }
+  /* 大图布局：强制单列 */
+  .album-grid.layout-large { grid-template-columns:1fr !important; }
+  /* 列表布局 */
+  .album-grid.layout-list { grid-template-columns:1fr !important; gap:8px; }
+  .album-list-card {
+    display:flex; align-items:center; overflow:hidden; cursor:pointer;
+    background:var(--bg2); border-radius:14px; border:1px solid var(--border);
+    box-shadow:0 2px 8px rgba(0,0,0,0.18); transition:transform 0.15s; }
+  .album-list-card:active { transform:scale(0.98); }
+  .album-list-card-img {
+    width:80px; height:80px; object-fit:cover; flex-shrink:0; display:block; }
+  .album-list-card-body {
+    flex:1; min-width:0; padding:10px 8px 10px 12px; }
+  .album-list-card-date {
+    font-size:0.62rem; color:var(--warm); letter-spacing:0.1em; margin-bottom:2px; }
+  .album-list-card-title {
+    font-size:0.82rem; font-weight:600; color:var(--text);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:3px; }
+  .album-list-card-summary {
+    font-size:0.7rem; color:var(--text-dim); line-height:1.4;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .album-list-card-like {
+    flex-shrink:0; width:32px; height:32px; margin-right:10px;
+    border-radius:50%; background:none; border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1rem; color:var(--text-dim); transition:transform 0.15s, color 0.15s; }
+  .album-list-card-like:active { transform:scale(1.3); }
+  .album-list-card-like.liked { color:#e03c3c; }
   /* Album detail overlay */
   .album-detail-overlay {
     position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.6);
@@ -1065,6 +1103,17 @@
     <button class="album-filter-btn active" id="albumFilterAll" onclick="setAlbumFilter('all')" data-i18n="albumAll">全部</button>
     <button class="album-filter-btn" id="albumFilterLiked" onclick="setAlbumFilter('liked')" data-i18n="albumLiked">♥ 已喜欢</button>
     <span class="album-count" id="albumCount"></span>
+    <div class="album-layout-btns">
+      <button class="album-layout-btn active" id="layoutBtnGrid" onclick="setAlbumLayout('grid')" title="网格">
+        <svg viewBox="0 0 18 18" width="14" height="14" fill="currentColor"><rect x="1" y="1" width="7" height="7" rx="1.2"/><rect x="10" y="1" width="7" height="7" rx="1.2"/><rect x="1" y="10" width="7" height="7" rx="1.2"/><rect x="10" y="10" width="7" height="7" rx="1.2"/></svg>
+      </button>
+      <button class="album-layout-btn" id="layoutBtnLarge" onclick="setAlbumLayout('large')" title="大图">
+        <svg viewBox="0 0 18 18" width="14" height="14" fill="currentColor"><rect x="1" y="1" width="16" height="7" rx="1.2"/><rect x="1" y="10" width="16" height="7" rx="1.2"/></svg>
+      </button>
+      <button class="album-layout-btn" id="layoutBtnList" onclick="setAlbumLayout('list')" title="列表">
+        <svg viewBox="0 0 18 18" width="14" height="14" fill="currentColor"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="2.5" width="9" height="2" rx="1"/><rect x="1" y="7" width="5" height="5" rx="1"/><rect x="8" y="8.5" width="9" height="2" rx="1"/><rect x="1" y="13" width="5" height="5" rx="1"/><rect x="8" y="14.5" width="9" height="2" rx="1"/></svg>
+      </button>
+    </div>
   </div>
   <div id="albumGrid" class="album-grid"></div>
 </div>
@@ -1318,6 +1367,7 @@
   let translations = JSON.parse(localStorage.getItem('vd_translations') || '{}');
   let likes = JSON.parse(localStorage.getItem('vd_likes') || '{}');
   let albumFilter = 'all'; // 'all' | 'liked'
+  let albumLayout = 'grid'; // 'grid' | 'large' | 'list'
   let calYear, calMonth, calSelected = null;
   let currentAudio = null;
   let currentPlayId = null;
@@ -2434,6 +2484,14 @@ document.getElementById('speakWave').classList.remove('active');
     renderAlbum();
   }
 
+  function setAlbumLayout(layout) {
+    albumLayout = layout;
+    ['Grid', 'Large', 'List'].forEach(l => {
+      document.getElementById('layoutBtn' + l).classList.toggle('active', l.toLowerCase() === layout);
+    });
+    renderAlbum();
+  }
+
   function toggleLike(dateStr, btn, e) {
     e.stopPropagation();
     likes[dateStr] = !likes[dateStr];
@@ -2445,6 +2503,7 @@ document.getElementById('speakWave').classList.remove('active');
   async function renderAlbum() {
     const grid = document.getElementById('albumGrid');
     grid.innerHTML = '';
+    grid.className = 'album-grid' + (albumLayout !== 'grid' ? ' layout-' + albumLayout : '');
     const all = await getAllIllus();
     all.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
     const filtered = albumFilter === 'liked' ? all.filter(x => likes[x.dateStr]) : all;
@@ -2471,30 +2530,46 @@ document.getElementById('speakWave').classList.remove('active');
 
       const safeId = dateStr.replace(/[^a-z0-9]/gi, '');
       const card = document.createElement('div');
-      card.className = 'album-card';
-      card.innerHTML = `
-        <div class="album-card-inner">
-          <div class="album-card-front">
-            <img src="${dataUrl}" alt="${dateStr}">
-            <div class="album-card-overlay">
-              <div class="album-card-overlay-date">${dateLabel}</div>
-              ${title ? `<div id="album-ot-${safeId}" class="album-card-overlay-title">${title}</div>` : ''}
+
+      if (albumLayout === 'list') {
+        card.className = 'album-list-card';
+        card.innerHTML = `
+          <img class="album-list-card-img" src="${dataUrl}" alt="${dateStr}">
+          <div class="album-list-card-body">
+            <div class="album-list-card-date">${dateLabel}</div>
+            ${title ? `<div id="album-lt-${safeId}" class="album-list-card-title">${title}</div>` : ''}
+            <div class="album-list-card-summary">${displayText}</div>
+          </div>
+          <button class="album-list-card-like${isLiked ? ' liked' : ''}">${isLiked ? '♥' : '♡'}</button>`;
+        card.onclick = () => openAlbumDetail(dateLabel, title, dataUrl, summaryText, dateStr);
+        card.querySelector('.album-list-card-like').onclick = e => toggleLike(dateStr, e.currentTarget, e);
+      } else {
+        card.className = 'album-card';
+        card.innerHTML = `
+          <div class="album-card-inner">
+            <div class="album-card-front">
+              <img src="${dataUrl}" alt="${dateStr}">
+              <div class="album-card-overlay">
+                <div class="album-card-overlay-date">${dateLabel}</div>
+                ${title ? `<div id="album-ot-${safeId}" class="album-card-overlay-title">${title}</div>` : ''}
+              </div>
+            </div>
+            <div class="album-card-back">
+              <div class="album-card-date">${dateLabel}</div>
+              ${title ? `<div id="album-bt-${safeId}" class="album-card-title">${title}</div>` : ''}
+              <div class="album-card-summary clamped">${displayText}</div>
+              <button class="album-expand-btn">${t('expandBtn')}</button>
             </div>
           </div>
-          <div class="album-card-back">
-            <div class="album-card-date">${dateLabel}</div>
-            ${title ? `<div id="album-bt-${safeId}" class="album-card-title">${title}</div>` : ''}
-            <div class="album-card-summary clamped">${displayText}</div>
-            <button class="album-expand-btn">${t('expandBtn')}</button>
-          </div>
-        </div>
-        <button class="album-like-btn${isLiked ? ' liked' : ''}">${isLiked ? '♥' : '♡'}</button>`;
-      card.onclick = () => card.classList.toggle('flipped');
-      card.querySelector('.album-expand-btn').onclick = e => {
-        e.stopPropagation();
-        openAlbumDetail(dateLabel, title, dataUrl, summaryText, dateStr);
-      };
-      card.querySelector('.album-like-btn').onclick = e => toggleLike(dateStr, e.currentTarget, e);
+          <button class="album-like-btn${isLiked ? ' liked' : ''}">${isLiked ? '♥' : '♡'}</button>`;
+        card.onclick = () => card.classList.toggle('flipped');
+        card.querySelector('.album-expand-btn').onclick = e => {
+          e.stopPropagation();
+          openAlbumDetail(dateLabel, title, dataUrl, summaryText, dateStr);
+        };
+        card.querySelector('.album-like-btn').onclick = e => toggleLike(dateStr, e.currentTarget, e);
+      }
+
       grid.appendChild(card);
       // 翻译标题（切换到英文时）
       if (title && currentLang === 'en') {
@@ -2502,8 +2577,10 @@ document.getElementById('speakWave').classList.remove('active');
           if (tx === title) return;
           const ot = document.getElementById('album-ot-' + safeId);
           const bt = document.getElementById('album-bt-' + safeId);
+          const lt = document.getElementById('album-lt-' + safeId);
           if (ot) ot.textContent = tx;
           if (bt) bt.textContent = tx;
+          if (lt) lt.textContent = tx;
         });
       }
     }
