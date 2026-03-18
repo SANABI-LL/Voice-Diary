@@ -16,8 +16,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
-// 静态文件
-app.use(express.static(path.join(__dirname, "../public")));
+// 静态文件（HTML 文件禁止缓存，确保 iOS Safari 每次都拿最新版）
+app.use(express.static(path.join(__dirname, "../public"), {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  }
+}));
 
 // 现有 API 路由（handler 自己解析 body，不需要 express.json）
 app.post("/api/transcribe", transcribeHandler);
