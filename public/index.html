@@ -1828,6 +1828,7 @@
       });
       captureCtx = new AudioContext();
       if (captureCtx.state === 'suspended') await captureCtx.resume();
+      if (!captureCtx.audioWorklet) throw Object.assign(new Error('AudioWorklet not supported'), { name: 'NotSupportedError' });
       await captureCtx.audioWorklet.addModule('/worklet.js');
 
       const source = captureCtx.createMediaStreamSource(micStream);
@@ -1870,7 +1871,13 @@
       document.getElementById('recordBtn').disabled = false;
       document.getElementById('recordHint').textContent = t('greeting');
     } catch (e) {
-      showToast(t('micFail'));
+      console.error('[Mic] setupMicAndPlayback failed:', e.name, e.message);
+      const msg = (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError')
+        ? t('micFail')
+        : (e.name === 'NotSupportedError' || !window.AudioWorklet)
+          ? (currentLang === 'en' ? 'Browser not supported, please update iOS to 14.5+' : '浏览器不支持，请升级 iOS 到 14.5 以上')
+          : t('micFail') + ' (' + e.name + ')';
+      showToast(msg);
       endConversation();
     }
   }
@@ -2122,6 +2129,10 @@ document.getElementById('speakWave').classList.remove('active');
       masterGain = playbackCtx.createGain();
       masterGain.connect(playbackCtx.destination);
       nextPlayTime = 0;
+    }
+    // iOS Safari 可能在等待麦克风/worklet 期间自动挂起 AudioContext，需在播放前恢复
+    if (playbackCtx.state === 'suspended') {
+      playbackCtx.resume().catch(() => {});
     }
     // 恢复增益（可能被 stopPlayback 静音过）
     if (masterGain.gain.value === 0) {
