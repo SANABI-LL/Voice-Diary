@@ -1293,6 +1293,7 @@
     currentLang = currentLang === 'zh' ? 'en' : 'zh';
     localStorage.setItem('vd_lang', currentLang);
     applyI18n();
+    renderEntries();
     refreshSummaryTranslations();
   }
 
@@ -1571,10 +1572,19 @@
       const card = document.createElement('div');
       card.className = 'entry-card';
       const isHidden = entry.hidden;
+      const needsTrans = !entry.loading && !isHidden && entry.text &&
+        ((currentLang === 'en' && isChinese(entry.text)) ||
+         (currentLang === 'zh' && !isChinese(entry.text)));
+      const cacheKey = `entry_${entry.id}|${currentLang}`;
+      const cachedText = needsTrans ? translations[cacheKey] : null;
+      const displayText = entry.loading ? t('transcribing')
+        : isHidden ? t('hiddenLabel')
+        : cachedText ? cachedText
+        : entry.text;
       card.innerHTML = `
         <div class="entry-time">${entry.time}${(!entry.loading && entry.hasAudio) ? ` <button class="play-btn" data-id="${entry.id}" onclick="playAudio(${entry.id})" title="${t('playHint')}">▶</button>` : ''}</div>
-        <div class="entry-text ${entry.loading ? 'loading' : ''} ${isHidden ? 'entry-hidden' : ''}">
-          ${entry.loading ? t('transcribing') : (isHidden ? t('hiddenLabel') : entry.text)}
+        <div class="entry-text ${entry.loading ? 'loading' : ''} ${isHidden ? 'entry-hidden' : ''}" id="entry-text-${entry.id}">
+          ${displayText}
         </div>
         ${!entry.loading ? `
           <button class="entry-hide" onclick="toggleHide(${entry.id})">${isHidden ? t('showHint') : t('hideHint')}</button>
@@ -1582,6 +1592,12 @@
         ` : ''}
       `;
       list.appendChild(card);
+      if (needsTrans && !cachedText) {
+        getTranslated(`entry_${entry.id}`, entry.text, currentLang).then(tx => {
+          const el = document.getElementById(`entry-text-${entry.id}`);
+          if (el) el.textContent = tx || entry.text;
+        });
+      }
     });
   }
 
