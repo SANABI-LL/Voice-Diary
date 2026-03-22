@@ -1736,8 +1736,19 @@
 
     function attachWsHandlers(ws) {
       ws.onmessage = handleLiveMessage;
-      ws.onerror = () => { showToast(t('connFail')); resetConvUI(); };
-      ws.onclose = () => { if (convActive) resetConvUI(); };
+      ws.onerror = (e) => {
+        console.error('[WS] onerror', e);
+        document.getElementById('recordHint').textContent = 'WS error – ' + (e.message || 'connection failed');
+        showToast(t('connFail'));
+        resetConvUI();
+      };
+      ws.onclose = (e) => {
+        console.warn('[WS] onclose code:', e.code, 'reason:', e.reason, 'wasClean:', e.wasClean);
+        if (convActive) {
+          document.getElementById('recordHint').textContent = `WS closed (${e.code})`;
+          resetConvUI();
+        }
+      };
     }
 
     if (preWs && (preWs.readyState === WebSocket.OPEN || preWs.readyState === WebSocket.CONNECTING)) {
