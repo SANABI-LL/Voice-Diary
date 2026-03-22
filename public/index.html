@@ -1994,6 +1994,11 @@
     area.scrollTop = area.scrollHeight;
   }
 
+  // Strip stage directions like （语速放缓）or (whispers) from displayed model text
+  function stripStageDirections(text) {
+    return text.replace(/[（(][^）)]{1,30}[）)]\s*/g, '').trim();
+  }
+
   function updatePartialBubble(role, text) {
     const area = document.getElementById('convArea');
     if (!partialEls[role]) {
@@ -2014,18 +2019,20 @@
         partialEls[role] = { wrap, bubble };
       }
     }
-    partialEls[role].bubble.textContent = lastModelTextPrefix + text;
+    const display = role === 'model' ? stripStageDirections(text) : text;
+    partialEls[role].bubble.textContent = lastModelTextPrefix + display;
     area.scrollTop = area.scrollHeight;
   }
 
   function finalizeBubble(role, text) {
     if (partialEls[role]) {
       partialEls[role].bubble.classList.remove('partial');
-      partialEls[role].bubble.textContent = lastModelTextPrefix + text;
+      const display = role === 'model' ? stripStageDirections(text) : text;
+      partialEls[role].bubble.textContent = lastModelTextPrefix + display;
       if (role === 'model') {
         // 保存气泡引用，若 Gemini 继续说话可追加到同一气泡
         lastModelBubble = partialEls[role].bubble;
-        lastModelTextPrefix = lastModelTextPrefix + text + ' ';
+        lastModelTextPrefix = lastModelTextPrefix + display + ' ';
       }
       partialEls[role] = null;
     }
