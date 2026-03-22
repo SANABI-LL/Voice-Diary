@@ -15,17 +15,17 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg: #241408;
-    --bg2: #362010;
-    --bg3: #4a2e18;
-    --warm: #f5b84a;
-    --warm2: #d4903a;
-    --warm-dim: rgba(245,184,74,0.15);
-    --warm-glow: rgba(245,184,74,0.08);
-    --text: #faecd8;
-    --text-dim: #c09468;
-    --red: #e05840;
-    --border: rgba(245,184,74,0.18);
+    --bg: #1a1728;
+    --bg2: #252040;
+    --bg3: #312c54;
+    --warm: #c8a8f5;
+    --warm2: #a080d8;
+    --warm-dim: rgba(200,168,245,0.15);
+    --warm-glow: rgba(200,168,245,0.08);
+    --text: #f0ecff;
+    --text-dim: #9888c8;
+    --red: #f09090;
+    --border: rgba(200,168,245,0.2);
   }
 
   body {
@@ -37,7 +37,7 @@
     flex-direction: column;
     align-items: center;
     background-image:
-      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(245,184,74,0.12) 0%, transparent 70%);
+      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(200,168,245,0.12) 0%, transparent 70%);
   }
 
   .main {
@@ -646,7 +646,7 @@
   .ios-nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
     padding-top: env(safe-area-inset-top, 0);
-    background: rgba(36,20,8,0.90);
+    background: rgba(26,23,40,0.90);
     backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border-bottom: 0.5px solid var(--border);
   }
@@ -685,7 +685,7 @@
   .ios-tab-bar {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
     padding-bottom: env(safe-area-inset-bottom, 0);
-    background: rgba(36,20,8,0.90);
+    background: rgba(26,23,40,0.90);
     backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border-top: 0.5px solid var(--border);
     display: flex;
