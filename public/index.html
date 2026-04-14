@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="碎碎念">
 <link rel="apple-touch-icon" href="/icon.png">
-<meta name="theme-color" content="#13100e">
+<meta name="theme-color" content="#1a1728">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -31,13 +31,14 @@
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Serif SC', serif;
+    font-family: 'Noto Serif SC', 'PingFang SC', -apple-system, BlinkMacSystemFont, serif;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
     background-image:
-      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(110,232,248,0.10) 0%, transparent 70%);
+      radial-gradient(ellipse 80% 50% at 50% -5%, rgba(110,232,248,0.13) 0%, transparent 65%),
+      radial-gradient(ellipse 45% 35% at 90% 85%, rgba(56,192,224,0.07) 0%, transparent 60%);
   }
 
   .main {
@@ -67,7 +68,7 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(ellipse at 50% 0%, rgba(232,168,87,0.05) 0%, transparent 60%);
+    background: radial-gradient(ellipse at 50% 0%, rgba(110,232,248,0.07) 0%, transparent 60%);
     pointer-events: none;
   }
 
@@ -86,7 +87,7 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  .record-btn:hover { background: rgba(232,168,87,0.2); transform: scale(1.05); }
+  .record-btn:hover { background: rgba(110,232,248,0.18); transform: scale(1.05); }
   .record-btn:active { transform: scale(0.95); }
 
   .record-btn.recording {
@@ -187,7 +188,7 @@
 
   /* 对话记录条目（念念 / 我 分块显示） */
   .conv-entry { display:flex; flex-direction:column; gap:8px; margin-top:4px; }
-  .conv-turn-model { background:rgba(232,168,87,0.08); border-left:3px solid var(--warm);
+  .conv-turn-model { background:rgba(110,232,248,0.08); border-left:3px solid var(--warm);
     padding:7px 11px; border-radius:0 8px 8px 0; }
   .conv-turn-user { background:rgba(255,255,255,0.04); border-left:3px solid rgba(255,255,255,0.18);
     padding:7px 11px; border-radius:0 8px 8px 0; }
@@ -236,7 +237,7 @@
   /* 翻面：总结信息 */
   .album-card-back {
     transform:rotateY(180deg);
-    background:var(--bg2); border:1px solid rgba(232,168,87,0.25);
+    background:var(--bg2); border:1px solid var(--border);
     padding:12px; display:flex; flex-direction:column; gap:5px; overflow:hidden; }
   .album-card-date { font-size:0.65rem; color:var(--warm); letter-spacing:0.1em; flex-shrink:0; }
   .album-card-title { font-size:0.8rem; font-weight:600; color:var(--text); flex-shrink:0; }
@@ -256,7 +257,7 @@
     background:none; color:var(--text-dim); font-size:0.72rem; cursor:pointer;
     transition:background 0.15s, color 0.15s, border-color 0.15s; }
   .album-filter-btn.active {
-    background:var(--warm); color:#13100e; border-color:var(--warm); font-weight:600; }
+    background:var(--warm); color:var(--bg); border-color:var(--warm); font-weight:600; }
   .album-count { font-size:0.7rem; color:var(--text-dim); }
   .album-empty { text-align:center; padding:60px 20px; color:var(--text-dim); font-size:0.88rem; grid-column:1/-1; }
   /* 布局切换按钮 */
@@ -268,7 +269,7 @@
     display:flex; align-items:center; justify-content:center;
     transition:background 0.15s, color 0.15s, border-color 0.15s; }
   .album-layout-btn.active {
-    background:var(--warm); color:#13100e; border-color:var(--warm); }
+    background:var(--warm); color:var(--bg); border-color:var(--warm); }
   /* 大图布局：强制单列 */
   .album-grid.layout-large { grid-template-columns:1fr !important; }
   /* 列表布局 */
@@ -363,7 +364,7 @@
 
   .summary-card {
     background: var(--bg2);
-    border: 1px solid rgba(232,168,87,0.3);
+    border: 1px solid var(--border);
     border-radius: 20px;
     padding: 20px;
     display: none;
@@ -415,7 +416,7 @@
     transition: all 0.15s;
     font-family: 'Noto Serif SC', serif;
   }
-  .copy-btn:hover { background: rgba(232,168,87,0.2); }
+  .copy-btn:hover { background: var(--warm-dim); }
 
   .spinner {
     display: inline-block;
@@ -467,7 +468,7 @@
   .cal-day.has-entry { color:var(--warm); font-weight:500; }
   .cal-day.has-entry::after { content:'·'; display:block; font-size:1.2rem; line-height:0.4; color:var(--warm); }
   .cal-day.today { background:var(--warm-dim); }
-  .cal-day.selected { background:var(--warm) !important; color:#13100e !important; }
+  .cal-day.selected { background:var(--warm) !important; color:var(--bg) !important; }
   .cal-day.other-month { opacity:0.3; }
   /* Illustration thumbnail in calendar */
   .cal-day-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:8px; }
@@ -476,8 +477,8 @@
   .cal-day.has-illus.has-entry::after { display:none; }
   .cal-day.has-illus.today::before,
   .cal-day.has-illus.selected::before { content:''; position:absolute; inset:0; border-radius:8px; z-index:0; }
-  .cal-day.has-illus.today::before { background:rgba(232,168,87,0.35); }
-  .cal-day.has-illus.selected::before { background:rgba(232,168,87,0.55); }
+  .cal-day.has-illus.today::before { background:rgba(110,232,248,0.35); }
+  .cal-day.has-illus.selected::before { background:rgba(110,232,248,0.55); }
   .cal-day-panel { background:var(--bg2); border:1px solid var(--border); border-radius:20px;
                    padding:16px; margin-top:16px; animation:slideIn 0.3s ease; }
 
@@ -527,7 +528,7 @@
   }
   .chat-bubble.user {
     align-self: flex-end; background: var(--warm-dim);
-    border: 1px solid rgba(232,168,87,0.25); color: var(--text);
+    border: 1px solid var(--border); color: var(--text);
     border-bottom-right-radius: 4px;
   }
   .chat-bubble.model {
@@ -575,7 +576,7 @@
   #nnAvatar { overflow:visible; transition:filter 0.4s; }
   #nnAvatar[data-state="happy"], #nnAvatar[data-state="celebrate"] { filter:drop-shadow(0 4px 18px rgba(255,215,0,0.4)); }
   #nnAvatar[data-state="love"] { filter:drop-shadow(0 4px 14px rgba(224,92,92,0.32)); }
-  #nnAvatar[data-state="talking"] { filter:drop-shadow(0 4px 14px rgba(232,168,87,0.28)); }
+  #nnAvatar[data-state="talking"] { filter:drop-shadow(0 4px 14px rgba(110,232,248,0.28)); }
 
   .nn-s-idle,.nn-s-listening,.nn-s-thinking,.nn-s-talking,
   .nn-s-happy,.nn-s-celebrate,.nn-s-love,
@@ -632,12 +633,12 @@
   /* 补录日期 banner */
   .date-banner {
     display:flex; align-items:center; justify-content:space-between;
-    background:rgba(232,168,87,0.12); border:1px solid rgba(232,168,87,0.4);
+    background:rgba(110,232,248,0.10); border:1px solid rgba(110,232,248,0.38);
     border-radius:14px; padding:10px 14px; margin-bottom:10px;
   }
   .date-banner-text { font-size:0.85rem; color:var(--warm); font-weight:500; }
   .date-banner button {
-    background:none; border:1px solid rgba(232,168,87,0.5); color:var(--warm);
+    background:none; border:1px solid rgba(110,232,248,0.48); color:var(--warm);
     border-radius:8px; padding:4px 10px; font-size:0.78rem; cursor:pointer;
     -webkit-tap-highlight-color:transparent;
   }
@@ -662,7 +663,7 @@
   .ios-nav-logo {
     font-family: 'Ma Shan Zheng', cursive;
     font-size: 1.3rem; color: var(--warm); line-height: 1.1;
-    text-shadow: 0 0 20px rgba(232,168,87,0.3);
+    text-shadow: 0 0 20px rgba(110,232,248,0.4);
   }
   .ios-nav-date {
     font-size: 0.58rem; color: var(--text-dim); letter-spacing: 0.15em;
@@ -707,7 +708,7 @@
   /* ===== Welcome Screen ===== */
   #welcomeScreen {
     position: fixed; inset: 0; z-index: 2000;
-    background: #13100e;
+    background: var(--bg);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 12px; cursor: pointer; overflow: hidden;
     transition: opacity 0.9s ease;
@@ -730,8 +731,8 @@
     opacity: 0.5; animation: blink 1.5s ease-in-out infinite;
   }
   @keyframes welcomePulse {
-    from { text-shadow: 0 0 20px rgba(232,168,87,0.3); }
-    to   { text-shadow: 0 0 40px rgba(232,168,87,0.6); }
+    from { text-shadow: 0 0 20px rgba(110,232,248,0.4); }
+    to   { text-shadow: 0 0 50px rgba(110,232,248,0.8); }
   }
   @keyframes blink { 0%,100% { opacity:0.4; } 50% { opacity:0.9; } }
 
@@ -854,9 +855,9 @@
       <path d="M40,5 Q45,13 40,19 Q35,13 40,5" fill="#3d2010"/>
 
       <!-- ── headphones ── -->
-      <path d="M22,34 Q22,13 40,13 Q58,13 58,34" stroke="#e8a857" stroke-width="4" fill="none" stroke-linecap="round"/>
-      <rect x="13" y="30" width="11" height="16" rx="5.5" fill="#e8a857"/>
-      <rect x="56" y="30" width="11" height="16" rx="5.5" fill="#e8a857"/>
+      <path d="M22,34 Q22,13 40,13 Q58,13 58,34" stroke="#6ee8f8" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <rect x="13" y="30" width="11" height="16" rx="5.5" fill="#6ee8f8"/>
+      <rect x="56" y="30" width="11" height="16" rx="5.5" fill="#6ee8f8"/>
       <!-- cup inner shadow -->
       <rect x="15" y="33" width="4" height="7" rx="2" fill="rgba(0,0,0,0.18)"/>
       <rect x="58" y="33" width="4" height="7" rx="2" fill="rgba(0,0,0,0.18)"/>
@@ -940,32 +941,32 @@
       <!-- ── DECORATIONS ── -->
       <!-- listening: pulse ring -->
       <g class="nn-d-pulse">
-        <circle cx="40" cy="38" r="41" fill="none" stroke="#e8a857" stroke-width="2" class="nn-pulse-ring"/>
+        <circle cx="40" cy="38" r="41" fill="none" stroke="#6ee8f8" stroke-width="2" class="nn-pulse-ring"/>
       </g>
       <!-- thinking: gear + dots -->
       <g class="nn-d-gear">
         <g class="nn-gear-spin">
-          <circle cx="67" cy="9" r="6" fill="none" stroke="#e8a857" stroke-width="2"/>
-          <circle cx="67" cy="9" r="2.2" fill="#e8a857"/>
-          <line x1="67" y1="0.5" x2="67" y2="3.5" stroke="#e8a857" stroke-width="2.2" stroke-linecap="round"/>
-          <line x1="67" y1="14.5" x2="67" y2="17.5" stroke="#e8a857" stroke-width="2.2" stroke-linecap="round"/>
-          <line x1="58.5" y1="9" x2="61.5" y2="9" stroke="#e8a857" stroke-width="2.2" stroke-linecap="round"/>
-          <line x1="72.5" y1="9" x2="75.5" y2="9" stroke="#e8a857" stroke-width="2.2" stroke-linecap="round"/>
-          <line x1="61" y1="3" x2="63.2" y2="5.2" stroke="#e8a857" stroke-width="2" stroke-linecap="round"/>
-          <line x1="70.8" y1="12.8" x2="73" y2="15" stroke="#e8a857" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="67" cy="9" r="6" fill="none" stroke="#6ee8f8" stroke-width="2"/>
+          <circle cx="67" cy="9" r="2.2" fill="#6ee8f8"/>
+          <line x1="67" y1="0.5" x2="67" y2="3.5" stroke="#6ee8f8" stroke-width="2.2" stroke-linecap="round"/>
+          <line x1="67" y1="14.5" x2="67" y2="17.5" stroke="#6ee8f8" stroke-width="2.2" stroke-linecap="round"/>
+          <line x1="58.5" y1="9" x2="61.5" y2="9" stroke="#6ee8f8" stroke-width="2.2" stroke-linecap="round"/>
+          <line x1="72.5" y1="9" x2="75.5" y2="9" stroke="#6ee8f8" stroke-width="2.2" stroke-linecap="round"/>
+          <line x1="61" y1="3" x2="63.2" y2="5.2" stroke="#6ee8f8" stroke-width="2" stroke-linecap="round"/>
+          <line x1="70.8" y1="12.8" x2="73" y2="15" stroke="#6ee8f8" stroke-width="2" stroke-linecap="round"/>
         </g>
       </g>
       <g class="nn-d-tdots">
-        <circle cx="35" cy="66" r="2.4" fill="#e8a857" class="nn-dot1"/>
-        <circle cx="40" cy="66" r="2.4" fill="#e8a857" class="nn-dot2"/>
-        <circle cx="45" cy="66" r="2.4" fill="#e8a857" class="nn-dot3"/>
+        <circle cx="35" cy="66" r="2.4" fill="#6ee8f8" class="nn-dot1"/>
+        <circle cx="40" cy="66" r="2.4" fill="#6ee8f8" class="nn-dot2"/>
+        <circle cx="45" cy="66" r="2.4" fill="#6ee8f8" class="nn-dot3"/>
       </g>
       <!-- talking: sound waves -->
       <g class="nn-d-waves">
-        <path d="M5,31 Q1,39 5,47" stroke="#e8a857" stroke-width="2" fill="none" stroke-linecap="round" class="nn-wv1"/>
-        <path d="M0,25 Q-5,39 0,53" stroke="#e8a857" stroke-width="2" fill="none" stroke-linecap="round" class="nn-wv2"/>
-        <path d="M75,31 Q79,39 75,47" stroke="#e8a857" stroke-width="2" fill="none" stroke-linecap="round" class="nn-wv3"/>
-        <path d="M80,25 Q85,39 80,53" stroke="#e8a857" stroke-width="2" fill="none" stroke-linecap="round" class="nn-wv4"/>
+        <path d="M5,31 Q1,39 5,47" stroke="#6ee8f8" stroke-width="2" fill="none" stroke-linecap="round" class="nn-wv1"/>
+        <path d="M0,25 Q-5,39 0,53" stroke="#6ee8f8" stroke-width="2" fill="none" stroke-linecap="round" class="nn-wv2"/>
+        <path d="M75,31 Q79,39 75,47" stroke="#6ee8f8" stroke-width="2" fill="none" stroke-linecap="round" class="nn-wv3"/>
+        <path d="M80,25 Q85,39 80,53" stroke="#6ee8f8" stroke-width="2" fill="none" stroke-linecap="round" class="nn-wv4"/>
       </g>
       <!-- happy: sparkles -->
       <g class="nn-d-sparkles">
@@ -981,7 +982,7 @@
         <rect x="50" y="-14" width="6" height="3.5" rx="1" fill="#5bbf8a" class="nn-cf3"/>
         <rect x="66" y="-15" width="5" height="5" rx="1" fill="#ffd700" class="nn-cf4"/>
         <rect x="4" y="-9" width="5" height="5" rx="1" fill="#9b7fdb" class="nn-cf5"/>
-        <rect x="75" y="-11" width="6" height="3.5" rx="1" fill="#e8a857" class="nn-cf6"/>
+        <rect x="75" y="-11" width="6" height="3.5" rx="1" fill="#6ee8f8" class="nn-cf6"/>
       </g>
       <!-- love: hearts -->
       <g class="nn-d-hearts">
