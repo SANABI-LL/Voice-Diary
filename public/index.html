@@ -1453,6 +1453,69 @@
   applyI18n();
   document.getElementById('welcomeScreen').addEventListener('click', dismissWelcome);
 
+  function buildEntryCard(entry) {
+    const isHidden = entry.hidden;
+    const isConv = !entry.loading && entry.text?.includes('conv-entry');
+    const canSub = !entry.loading && !isHidden && !isConv && entry.text;
+    const subLang = canSub ? (isChinese(entry.text) ? 'en' : 'zh') : null;
+    const cachedSub = subLang ? translations[`entry_${entry.id}|${subLang}`] : null;
+    const displayText = entry.loading ? t('transcribing') : isHidden ? t('hiddenLabel') : entry.text;
+
+    const card = document.createElement('div');
+    card.className = 'entry-card';
+
+    const timeDiv = document.createElement('div');
+    timeDiv.className = 'entry-time';
+    timeDiv.textContent = entry.time;
+    if (!entry.loading && entry.hasAudio) {
+      const playBtn = document.createElement('button');
+      playBtn.className = 'play-btn';
+      playBtn.dataset.id = entry.id;
+      playBtn.onclick = () => playAudio(entry.id);
+      playBtn.title = t('playHint');
+      playBtn.textContent = '▶';
+      timeDiv.appendChild(playBtn);
+    }
+    card.appendChild(timeDiv);
+
+    const textDiv = document.createElement('div');
+    textDiv.className = `entry-text${entry.loading ? ' loading' : ''}${isHidden ? ' entry-hidden' : ''}`;
+    if (isConv) textDiv.innerHTML = displayText;
+    else textDiv.textContent = displayText;
+    card.appendChild(textDiv);
+
+    if (canSub) {
+      const subDiv = document.createElement('div');
+      subDiv.className = 'entry-sub-text';
+      subDiv.id = `entry-sub-${entry.id}`;
+      subDiv.textContent = cachedSub || '';
+      card.appendChild(subDiv);
+      if (!cachedSub) {
+        getTranslated(`entry_${entry.id}`, entry.text, subLang).then(tx => {
+          const el = document.getElementById(`entry-sub-${entry.id}`);
+          if (el) el.textContent = tx || '';
+        });
+      }
+    }
+
+    if (!entry.loading) {
+      const hideBtn = document.createElement('button');
+      hideBtn.className = 'entry-hide';
+      hideBtn.onclick = () => toggleHide(entry.id);
+      hideBtn.textContent = isHidden ? t('showHint') : t('hideHint');
+      card.appendChild(hideBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'entry-delete';
+      delBtn.onclick = () => deleteEntry(entry.id);
+      delBtn.title = t('deleteBtnTitle');
+      delBtn.textContent = '×';
+      card.appendChild(delBtn);
+    }
+
+    return card;
+  }
+
   // Render entries
   function renderEntries() {
     const activeDateStr = getActiveDateStr();
@@ -1468,9 +1531,7 @@
     const sectionLabel = document.getElementById('sectionTodayLabel');
     if (sectionLabel) sectionLabel.textContent = activeDate ? activeDate : t('sectionToday');
 
-    // Clear and re-render
-    const existingCards = list.querySelectorAll('.entry-card');
-    existingCards.forEach(c => c.remove());
+    list.querySelectorAll('.entry-card').forEach(c => c.remove());
 
     if (todayEntries.length === 0) {
       empty.style.display = '';
@@ -1478,34 +1539,9 @@
     }
     empty.style.display = 'none';
 
-    todayEntries.forEach((entry, idx) => {
-      const card = document.createElement('div');
-      card.className = 'entry-card';
-      const isHidden = entry.hidden;
-      const isConv = !entry.loading && entry.text?.includes('conv-entry');
-      const canSub = !entry.loading && !isHidden && !isConv && entry.text;
-      const subLang = canSub ? (isChinese(entry.text) ? 'en' : 'zh') : null;
-      const cachedSub = subLang ? translations[`entry_${entry.id}|${subLang}`] : null;
-      const displayText = entry.loading ? t('transcribing') : isHidden ? t('hiddenLabel') : entry.text;
-      card.innerHTML = `
-        <div class="entry-time">${entry.time}${(!entry.loading && entry.hasAudio) ? ` <button class="play-btn" data-id="${entry.id}" onclick="playAudio(${entry.id})" title="${t('playHint')}">▶</button>` : ''}</div>
-        <div class="entry-text ${entry.loading ? 'loading' : ''} ${isHidden ? 'entry-hidden' : ''}">
-          ${displayText}
-        </div>
-        ${canSub ? `<div class="entry-sub-text" id="entry-sub-${entry.id}">${cachedSub || ''}</div>` : ''}
-        ${!entry.loading ? `
-          <button class="entry-hide" onclick="toggleHide(${entry.id})">${isHidden ? t('showHint') : t('hideHint')}</button>
-          <button class="entry-delete" onclick="deleteEntry(${entry.id})" title="${t('deleteBtnTitle')}">×</button>
-        ` : ''}
-      `;
-      list.appendChild(card);
-      if (canSub && !cachedSub) {
-        getTranslated(`entry_${entry.id}`, entry.text, subLang).then(tx => {
-          const el = document.getElementById(`entry-sub-${entry.id}`);
-          if (el) el.textContent = tx || '';
-        });
-      }
-    });
+    const frag = document.createDocumentFragment();
+    todayEntries.forEach(entry => frag.appendChild(buildEntryCard(entry)));
+    list.appendChild(frag);
   }
 
   function toggleHide(id) {
@@ -1795,8 +1831,11 @@
 
         // 始终转发用户音频——Gemini 自动 VAD 处理说话检测和打断
         const bytes = new Uint8Array(e.data);
-        let str = ''; for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
-        liveWs.send(JSON.stringify({ type: 'audio', data: btoa(str) }));
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += 8192) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+        }
+        liveWs.send(JSON.stringify({ type: 'audio', data: btoa(binary) }));
       };
       source.connect(workletNode);
 
@@ -2080,12 +2119,9 @@ document.getElementById('speakWave').classList.remove('active');
       masterGain.gain.cancelScheduledValues(playbackCtx.currentTime);
       masterGain.gain.setValueAtTime(1, playbackCtx.currentTime);
     }
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
     const samples = new Int16Array(bytes.buffer);
-    const f32 = new Float32Array(samples.length);
-    for (let i = 0; i < samples.length; i++) f32[i] = samples[i] / 32768;
+    const f32 = Float32Array.from(samples, s => s / 32768);
     const buf = playbackCtx.createBuffer(1, f32.length, sampleRate);
     buf.getChannelData(0).set(f32);
     const src = playbackCtx.createBufferSource();
