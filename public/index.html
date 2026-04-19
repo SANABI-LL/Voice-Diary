@@ -746,6 +746,177 @@
     padding-bottom: calc(49px + env(safe-area-inset-bottom, 0) + 16px);
     display: flex; flex-direction: column; align-items: center; width: 100%;
   }
+
+  /* ===== Prototype Design: StreakBar / LapseNudge / ReminderSheet / CelebrationOverlay ===== */
+  @keyframes nudgePulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
+  @keyframes streakDotPop { 0%,100%{transform:scale(1)} 50%{transform:scale(1.35)} }
+  @keyframes celebBounce {
+    0%{transform:translateY(40px) scale(.9);opacity:0}
+    60%{transform:translateY(-10px) scale(1.02);opacity:1}
+    80%{transform:translateY(4px) scale(.99)}
+    100%{transform:translateY(0) scale(1);opacity:1}
+  }
+  @keyframes confettiDrop {
+    0%{transform:translateY(0) rotate(0deg);opacity:1}
+    100%{transform:translateY(90px) rotate(540deg);opacity:0}
+  }
+  @keyframes sheetSlideUp {
+    from{transform:translateY(100%)}
+    to{transform:translateY(0)}
+  }
+
+  /* StreakBar */
+  .streak-bar {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 11px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .streak-bar-top {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .streak-fire-label {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.82rem; font-weight: 600; color: var(--text);
+  }
+  .streak-fire-count { color: var(--warm); }
+  .streak-reminder-btn {
+    display: flex; align-items: center; gap: 4px;
+    background: none; border: 1px solid var(--border);
+    border-radius: 20px; padding: 4px 10px; cursor: pointer;
+    font-size: 0.7rem; color: var(--text-dim);
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .streak-reminder-btn:hover { border-color: var(--warm); color: var(--warm); }
+  .streak-dots {
+    display: flex; justify-content: space-between; gap: 4px;
+  }
+  .streak-dot-wrap {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .streak-dot-label { font-size: 0.58rem; color: var(--text-dim); }
+  .streak-dot {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 1.5px solid rgba(255,255,255,0.1);
+    transition: background 0.2s;
+  }
+  .streak-dot.filled {
+    background: var(--warm);
+    border-color: var(--warm);
+    box-shadow: 0 0 6px rgba(110,232,248,0.4);
+  }
+  .streak-dot.today.filled { animation: streakDotPop 1.5s ease-in-out infinite; }
+
+  /* LapseNudge */
+  .lapse-nudge {
+    border-radius: 14px; padding: 12px 16px;
+    cursor: pointer;
+    background: linear-gradient(135deg, rgba(110,232,248,0.08), rgba(110,232,248,0.03));
+    border: 1.5px solid rgba(110,232,248,0.2);
+    animation: nudgePulse 3s ease-in-out infinite;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .lapse-nudge-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #c4b5fd, #38c0e0);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .lapse-nudge-title {
+    font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 2px;
+  }
+  .lapse-nudge-sub { font-size: 0.72rem; color: var(--text-dim); line-height: 1.4; }
+
+  /* ReminderSheet */
+  .reminder-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.55);
+    display: flex; align-items: flex-end;
+  }
+  .reminder-sheet {
+    width: 100%; background: var(--bg2);
+    border-radius: 24px 24px 0 0;
+    padding: 0 0 max(32px, env(safe-area-inset-bottom, 16px));
+    animation: sheetSlideUp 0.32s cubic-bezier(.4,0,.2,1) both;
+    max-width: 500px; margin: 0 auto;
+  }
+  .reminder-handle {
+    width: 36px; height: 4px; border-radius: 2px;
+    background: rgba(255,255,255,0.15);
+    margin: 12px auto 4px;
+  }
+  .reminder-title {
+    font-size: 1.05rem; font-weight: 700; color: var(--text);
+    padding: 14px 22px 6px;
+  }
+  .reminder-sub {
+    font-size: 0.78rem; color: var(--text-dim);
+    padding: 0 22px 14px;
+  }
+  .reminder-pickers {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 22px 16px;
+  }
+  .reminder-picker {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); border-radius: 12px; padding: 10px 12px;
+    font-size: 1.1rem; text-align: center; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    background-image: none;
+  }
+  .reminder-picker-sep { color: var(--text-dim); font-size: 1.3rem; font-weight: 600; }
+  .reminder-save-btn {
+    display: block; width: calc(100% - 44px); margin: 0 22px;
+    background: var(--warm); color: var(--bg); border: none; border-radius: 14px;
+    padding: 13px; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .reminder-save-btn:active { opacity: 0.8; }
+  .reminder-saved-msg { text-align: center; color: var(--warm); font-size: 0.85rem; padding: 8px; }
+
+  /* CelebrationOverlay */
+  .celeb-overlay {
+    position: fixed; inset: 0; z-index: 600;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .celeb-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 24px; padding: 36px 28px 28px;
+    text-align: center; position: relative;
+    animation: celebBounce 0.55s cubic-bezier(.34,1.56,.64,1) both;
+    max-width: 300px; width: 90%;
+  }
+  .celeb-fire { font-size: 3.5rem; line-height: 1; margin-bottom: 8px; }
+  .celeb-count { font-size: 3rem; font-weight: 800; color: var(--warm); line-height: 1; }
+  .celeb-label { font-size: 1rem; color: var(--text-dim); margin: 6px 0 20px; }
+  .celeb-close-btn {
+    background: var(--warm); color: var(--bg); border: none;
+    border-radius: 14px; padding: 12px 28px;
+    font-size: 0.95rem; font-weight: 700; cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .celeb-close-btn:active { opacity: 0.8; }
+  .celeb-confetti {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .confetti-piece {
+    position: absolute; width: 8px; height: 8px;
+    border-radius: 2px;
+    animation: confettiDrop 1.2s ease-in forwards;
+  }
+
+  /* Diary Tab View */
+  .diary-view { padding: 0 0 20px; width: 100%; }
+  .diary-date-group { margin-bottom: 8px; }
+  .diary-date-heading {
+    font-size: 0.72rem; font-weight: 600; color: var(--warm);
+    letter-spacing: 0.08em; padding: 10px 16px 4px; text-transform: uppercase;
+  }
 </style>
 </head>
 <body>
@@ -797,6 +968,26 @@
   <div class="date-banner" id="dateBanner" style="display:none">
     <span class="date-banner-text" id="dateBannerText"></span>
     <button onclick="clearActiveDate()" data-i18n-key="backToToday">× 返回今天</button>
+  </div>
+
+  <!-- StreakBar -->
+  <div class="streak-bar" id="streakBar">
+    <div class="streak-bar-top">
+      <div class="streak-fire-label">
+        🔥 连续 <span class="streak-fire-count" id="streakCount">0</span> 天
+      </div>
+      <button class="streak-reminder-btn" onclick="openReminderSheet()">🔔 设置提醒</button>
+    </div>
+    <div class="streak-dots" id="streakDots"></div>
+  </div>
+
+  <!-- LapseNudge -->
+  <div class="lapse-nudge" id="lapseNudge" onclick="document.getElementById('recordBtn').click()" style="display:none">
+    <div class="lapse-nudge-avatar">🌟</div>
+    <div>
+      <div class="lapse-nudge-title">今天还没记录哦 👀</div>
+      <div class="lapse-nudge-sub">念念在等你，说说今天的故事吧</div>
+    </div>
   </div>
 
   <!-- Record Area -->
@@ -1084,7 +1275,46 @@
 </div>
 
 
+<div id="diaryView" class="main diary-view" style="display:none">
+  <div id="diaryList"></div>
+</div>
+
 </div><!-- /page-content -->
+
+<!-- ReminderSheet -->
+<div class="reminder-overlay" id="reminderOverlay" style="display:none" onclick="closeReminderSheet()">
+  <div class="reminder-sheet" onclick="event.stopPropagation()">
+    <div class="reminder-handle"></div>
+    <div class="reminder-title">设置每日提醒</div>
+    <div class="reminder-sub">念念会在这个时间提醒你记录今天的故事</div>
+    <div class="reminder-pickers">
+      <select class="reminder-picker" id="reminderHour">
+        <option>06</option><option>07</option><option>08</option><option>09</option>
+        <option>10</option><option>11</option><option>12</option><option>13</option>
+        <option>14</option><option>15</option><option>16</option><option>17</option>
+        <option>18</option><option>19</option><option>20</option><option selected>21</option>
+        <option>22</option><option>23</option>
+      </select>
+      <span class="reminder-picker-sep">:</span>
+      <select class="reminder-picker" id="reminderMin">
+        <option selected>00</option><option>15</option><option>30</option><option>45</option>
+      </select>
+    </div>
+    <button class="reminder-save-btn" id="reminderSaveBtn" onclick="saveReminder()">保存提醒</button>
+    <div class="reminder-saved-msg" id="reminderSavedMsg" style="display:none">✓ 已设置提醒 🔔</div>
+  </div>
+</div>
+
+<!-- CelebrationOverlay -->
+<div class="celeb-overlay" id="celebOverlay" style="display:none">
+  <div class="celeb-card" id="celebCard">
+    <div class="celeb-confetti" id="celebConfetti"></div>
+    <div class="celeb-fire">🔥</div>
+    <div class="celeb-count" id="celebCount">7</div>
+    <div class="celeb-label">天连续打卡</div>
+    <button class="celeb-close-btn" onclick="closeCelebration()">继续保持 💪</button>
+  </div>
+</div>
 
 <!-- iOS 底部 Tab Bar -->
 <nav class="ios-tab-bar">
@@ -1100,6 +1330,10 @@
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 3h-1V1h-2v2H8V1H6v2H5C3.9 3 3 3.9 3 5v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM5 6V5h14v1H5z"/></svg>
     <span class="ios-tab-label" data-i18n="tabCalendar">日历</span>
   </button>
+  <button class="ios-tab" id="tabDiary" onclick="switchView('diary')">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 18H6V4h2v8l2.5-1.5L13 12V4h5v16z"/></svg>
+    <span class="ios-tab-label" data-i18n="tabDiary">日记</span>
+  </button>
 </nav>
 
 <div class="toast" id="toast"></div>
@@ -1108,7 +1342,7 @@
   // ===== i18n =====
   const I18N = {
     zh: {
-      appName: '碎碎念', tabToday: '今日', tabAlbum: '相册', tabCalendar: '日历',
+      appName: '碎碎念', tabToday: '今日', tabAlbum: '相册', tabCalendar: '日历', tabDiary: '日记',
       albumEmpty: '还没有插图，先去生成一张吧',
       albumAll: '全部', albumLiked: '♥ 已喜欢', albumNoLiked: '还没有喜欢的插图',
       recordHint: '按下开始与念念对话', recordHintSub: 'AI语音陪伴 · 对话结束后生成总结',
@@ -1151,7 +1385,7 @@
       closeBtn: '关闭', translating: '翻译中...', expandBtn: '展开全文',
     },
     en: {
-      appName: 'Voice Diary', tabToday: 'Today', tabAlbum: 'Album', tabCalendar: 'Calendar',
+      appName: 'Voice Diary', tabToday: 'Today', tabAlbum: 'Album', tabCalendar: 'Calendar', tabDiary: 'Diary',
       albumEmpty: 'No illustrations yet. Generate one first!',
       albumAll: 'All', albumLiked: '♥ Liked', albumNoLiked: 'No liked illustrations yet',
       recordHint: 'Tap to chat with Niannian', recordHintSub: 'AI voice companion · summary after chat',
@@ -1535,6 +1769,7 @@
 
     if (todayEntries.length === 0) {
       empty.style.display = '';
+      updateStreakBar();
       return;
     }
     empty.style.display = 'none';
@@ -1542,6 +1777,7 @@
     const frag = document.createDocumentFragment();
     todayEntries.forEach(entry => frag.appendChild(buildEntryCard(entry)));
     list.appendChild(frag);
+    updateStreakBar();
   }
 
   function toggleHide(id) {
@@ -2059,6 +2295,7 @@ document.getElementById('speakWave').classList.remove('active');
         saveAudio(id, wavBlob);
       }
       renderEntries();
+      checkCelebration();
       showToast(t('convRecorded'));
     }
     resetConvUI();
@@ -2213,6 +2450,7 @@ document.getElementById('speakWave').classList.remove('active');
 
     saveEntries();
     renderEntries();
+    checkCelebration();
     transcribing = false;
     document.getElementById('recordBtn').disabled = false;
     document.getElementById('recordHint').innerHTML = t('recordHintDone') + '<br><span style="font-size:0.75rem;opacity:0.6">' + t('recordHintDoneSub') + '</span>';
@@ -2347,11 +2585,14 @@ document.getElementById('speakWave').classList.remove('active');
     document.getElementById('todayView').style.display = view === 'today' ? '' : 'none';
     document.getElementById('albumView').style.display = view === 'album' ? '' : 'none';
     document.getElementById('calendarView').style.display = view === 'calendar' ? '' : 'none';
+    document.getElementById('diaryView').style.display = view === 'diary' ? '' : 'none';
     document.getElementById('tabToday').classList.toggle('active', view === 'today');
     document.getElementById('tabAlbum').classList.toggle('active', view === 'album');
     document.getElementById('tabCalendar').classList.toggle('active', view === 'calendar');
+    document.getElementById('tabDiary').classList.toggle('active', view === 'diary');
     if (view === 'calendar') renderCalendar();
     if (view === 'album') renderAlbum();
+    if (view === 'diary') renderDiaryTab();
   }
 
   function openDayEditor(dateStr) {
@@ -2871,6 +3112,191 @@ document.getElementById('speakWave').classList.remove('active');
       console.error(e);
       showToast(t('importDataFail'));
     }
+  }
+
+  // ===== StreakBar + LapseNudge =====
+  function getDateStr(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function hasEntryForDate(dateStr) {
+    const norm = dateStr.replace(/\//g, '-');
+    return entries.some(e => {
+      const ed = (e.date || '').replace(/\//g, '-');
+      return ed === norm;
+    });
+  }
+
+  function calculateStreak() {
+    const today = new Date();
+    let streak = 0;
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      if (hasEntryForDate(getDateStr(d))) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  function updateStreakBar() {
+    const streak = calculateStreak();
+    const todayStr = getDateStr(new Date());
+    const hasToday = hasEntryForDate(todayStr);
+
+    document.getElementById('streakCount').textContent = streak;
+
+    // Render 7 dots (Mon-Sun of current week)
+    const dotsContainer = document.getElementById('streakDots');
+    const dayLabels = ['一','二','三','四','五','六','日'];
+    const today = new Date();
+    const todayDow = today.getDay(); // 0=Sun
+    // Build last 7 days starting from Mon of this week
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - ((todayDow + 6) % 7)); // Monday
+
+    let html = '';
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      const ds = getDateStr(d);
+      const isToday = ds === todayStr;
+      const isFuture = d > today;
+      const filled = !isFuture && hasEntryForDate(ds);
+      const classes = ['streak-dot', filled ? 'filled' : '', isToday ? 'today' : ''].filter(Boolean).join(' ');
+      html += `<div class="streak-dot-wrap">
+        <div class="${classes}"></div>
+        <div class="streak-dot-label">${dayLabels[i]}</div>
+      </div>`;
+    }
+    dotsContainer.innerHTML = html;
+
+    // LapseNudge: show only when today is active date and no entries today
+    const lapseNudge = document.getElementById('lapseNudge');
+    const activeDs = getActiveDateStr();
+    const isToday = activeDs === todayStr || activeDs === todayStr.replace(/-/g, '/');
+    if (lapseNudge) lapseNudge.style.display = (isToday && !hasToday) ? '' : 'none';
+  }
+
+  // ===== ReminderSheet =====
+  function openReminderSheet() {
+    const saved = JSON.parse(localStorage.getItem('vd_reminder') || 'null');
+    if (saved) {
+      const hSel = document.getElementById('reminderHour');
+      const mSel = document.getElementById('reminderMin');
+      if (hSel) {
+        for (let o of hSel.options) { if (o.value === saved.hour) { o.selected = true; break; } }
+      }
+      if (mSel) {
+        for (let o of mSel.options) { if (o.value === saved.min) { o.selected = true; break; } }
+      }
+    }
+    document.getElementById('reminderSaveBtn').style.display = '';
+    document.getElementById('reminderSavedMsg').style.display = 'none';
+    document.getElementById('reminderOverlay').style.display = '';
+  }
+
+  function closeReminderSheet() {
+    document.getElementById('reminderOverlay').style.display = 'none';
+  }
+
+  async function saveReminder() {
+    const hour = document.getElementById('reminderHour').value;
+    const min = document.getElementById('reminderMin').value;
+    localStorage.setItem('vd_reminder', JSON.stringify({ hour, min }));
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      await Notification.requestPermission();
+    }
+    document.getElementById('reminderSaveBtn').style.display = 'none';
+    document.getElementById('reminderSavedMsg').style.display = '';
+    setTimeout(closeReminderSheet, 900);
+  }
+
+  // ===== CelebrationOverlay =====
+  const MILESTONES = [3, 7, 14, 30];
+
+  function checkCelebration() {
+    const streak = calculateStreak();
+    const celebrated = JSON.parse(localStorage.getItem('vd_celebrated') || '[]');
+    for (const m of MILESTONES) {
+      if (streak >= m && !celebrated.includes(m)) {
+        celebrated.push(m);
+        localStorage.setItem('vd_celebrated', JSON.stringify(celebrated));
+        showCelebration(m);
+        return;
+      }
+    }
+  }
+
+  function showCelebration(n) {
+    document.getElementById('celebCount').textContent = n;
+    const container = document.getElementById('celebConfetti');
+    container.innerHTML = '';
+    const colors = ['#6ee8f8','#c4b5fd','#f59e0b','#10b981','#ff85aa','#38c0e0'];
+    for (let i = 0; i < 12; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.cssText = `
+        left: ${Math.random() * 240 - 30}px;
+        background: ${colors[i % colors.length]};
+        animation-delay: ${Math.random() * 0.6}s;
+        animation-duration: ${0.9 + Math.random() * 0.6}s;
+        width: ${6 + Math.random() * 6}px;
+        height: ${6 + Math.random() * 6}px;
+        border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+      `;
+      container.appendChild(el);
+    }
+    document.getElementById('celebOverlay').style.display = '';
+  }
+
+  function closeCelebration() {
+    document.getElementById('celebOverlay').style.display = 'none';
+  }
+
+  // ===== Diary Tab =====
+  function renderDiaryTab() {
+    const list = document.getElementById('diaryList');
+    if (!list) return;
+
+    // Group entries by date, descending
+    const byDate = {};
+    for (const e of entries) {
+      const d = (e.date || '').replace(/\//g, '-');
+      if (!byDate[d]) byDate[d] = [];
+      byDate[d].push(e);
+    }
+    const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+
+    if (sortedDates.length === 0) {
+      list.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--text-dim);font-size:0.88rem">还没有任何日记<br>去今日 tab 录音吧</div>`;
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    for (const dateStr of sortedDates) {
+      const group = document.createElement('div');
+      group.className = 'diary-date-group';
+      const heading = document.createElement('div');
+      heading.className = 'diary-date-heading';
+      const d = new Date(dateStr + 'T00:00:00');
+      heading.textContent = d.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-US', {
+        year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+      });
+      group.appendChild(heading);
+      for (const entry of byDate[dateStr]) {
+        group.appendChild(buildEntryCard(entry));
+      }
+      frag.appendChild(group);
+    }
+    list.innerHTML = '';
+    list.appendChild(frag);
   }
 
   // Init
